@@ -1,0 +1,28 @@
+{
+  "$schema": "https://raw.githubusercontent.com/microsoft/pyright/main/packages/vscode-pyright/schemas/pyrightconfig.schema.json",
+  "pythonVerson": "3.10",
+  "include": [
+    "src",
+    "scripts"
+  ],
+
+  "typeCheckingMode": "strict",
+
+  // disable some settings for incomplete stubs
+  "reportIncompleteStub": "none",
+  "reportMissingParameterType": "none",
+  "reportUnknownMemberType": "none",
+  "reportUnknownParameterType": "none",
+  "reportUnknownVariableType": "none",
+
+  // moderate some settings
+  "reportMissingTypeStubs": "none",
+  "reportUnusedClass": "warning",
+  "reportUnusedImport": "warning",
+  "reportUnusedFunction": "warning",
+  "reportUnusedVariable": "warning",
+  "reportUnknownArgumentType": "none",
+
+  // enable some strict settings
+  "reportCallInDefaultInitializer": "error",
+}
