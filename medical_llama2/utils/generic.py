@@ -1,0 +1,80 @@
+import glob
+import io
+import math
+import os
+import random
+import yaml
+from typing import Any
+
+import numpy as np
+import torch
+import torch.nn as nn
+from pickle import Pickler, Unpickler
+
+
+def set_seed(seed: int = 0x3f3f3f3f):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+
+def load_yaml_config(config_path: str):
+    with open(config_path) as config_file:
+        config = yaml.safe_load(config_file)
+    return config
+
+def master_print(*values: object, local_master: bool = False, **kwargs) -> None:
+    is_master = bool(os.environ.get('is_master', 0))
+    is_local_master = bool(os.environ.get('is_local_master', 0))
+    should_print = (is_master or (local_master and is_local_master))
+    if should_print:
+        print(*values, **kwargs)
+
+def chunks(data: list[Any] | str, chunk_size: int = 1_000):
+    for i in range(0, len(data), chunk_size):
+        yield data[i:i+chunk_size]
+
+def ensure_dir(path: str) -> str:
+    os.makedirs(path, exist_ok=True)
+    return path
+
+def is_xla_device(device: torch.device | None) -> bool:
+    return device is not None and device.type == 'xla'
+
+def ensure_num_saved_checkpoints(
+    checkpoints_dir: str,
+    model_basename: str,
+    limit: int,
+) -> None:
+    checkpoints = glob.glob(os.path.join(checkpoints_dir, f'{model_basename}-*.pt'))
+    checkpoints = list(checkpoints)
+    if len(checkpoints) <= limit:
+        return
+
+    checkpoints = sorted(checkpoints, key=lambda x: int(x.split('-')[-1][:-3]))
+    for cp in checkpoints[:-limit]:
+        os.remove(cp)
+
+def count_model_param(model: nn.Module) -> int:
+    return sum(param.numel() for param in model.parameters() if param.requires_grad)
+
+def object_to_tensor(obj, device, group=None):
+    """Modified from `torch/distributed/distributed_c10d.py`."""
+    f = io.BytesIO()
+    Pickler(f).dump(obj)
+    byte_storage = torch.ByteStorage._from_buffer(f.getvalue())  # pyright: ignore[reportPrivateUsage]
+    # Do not replace `torch.ByteTensor` or `torch.LongTensor` with torch.tensor and specifying dtype.
+    # Otherwise, it will casue 100X slowdown.
+    # See: https://github.com/pytorch/pytorch/issues/65696
+    byte_tensor = torch.ByteTensor(byte_storage).to(device)
+    local_size = torch.LongTensor([byte_tensor.numel()]).to(device)
+    return byte_tensor, local_size
+
+def tensor_to_object(tensor, tensor_size, group=None):
+    """Modified from `torch/distributed/distributed_c10d.py`."""
+    tensor = tensor.cpu()
+    buf = tensor.numpy().tobytes()[:tensor_size]
+    return Unpickler(io.BytesIO(buf)).load()
+
+def get_perplexity(loss: float) -> float:
+    return math.exp(loss)
