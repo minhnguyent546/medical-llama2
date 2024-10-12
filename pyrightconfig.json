@@ -1,9 +1,16 @@
 {
   "$schema": "https://raw.githubusercontent.com/microsoft/pyright/main/packages/vscode-pyright/schemas/pyrightconfig.schema.json",
   "pythonVerson": "3.10",
+
+  "venv": ".venv",
+  "venvPath": ".",
+
   "include": [
-    "src",
-    "scripts"
+    "medical_llama2/",
+    "scripts/"
+  ],
+  "exclude": [
+    ".venv/",
   ],
 
   "typeCheckingMode": "strict",
