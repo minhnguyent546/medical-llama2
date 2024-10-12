@@ -251,7 +251,7 @@ def _add_lora_opts(parser: argparse.ArgumentParser) -> None:
     )
     group.add_argument(
         '--lora_r',
-        type=float,
+        type=int,
         help='LoRA matrices rank',
         default=8,
     )

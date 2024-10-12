@@ -146,7 +146,6 @@ def train_model(args: argparse.Namespace) -> None:
     )
     model = prepare_model_for_kbit_training(model, args.use_gradient_checkpointing)
     model = get_peft_model(model, peft_config)
-    model.to(device)
     if args.is_master:
         model.print_trainable_parameters()
 
