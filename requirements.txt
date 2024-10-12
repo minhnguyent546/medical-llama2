@@ -6,4 +6,4 @@ torch==2.3.0
 torch_xla==2.3.0
 tqdm==4.66.3
 transformers==4.42.3
-wandb==0.17.4
+wandb==0.18.3
