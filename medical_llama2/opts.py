@@ -78,7 +78,7 @@ def _add_wandb_opts(parser: argparse.ArgumentParser) -> None:
         '--wandb_project',
         type=str,
         help='Project name',
-        default='pre-training-gpt2',
+        default='medical-llama2',
     )
     group.add_argument(
         '--wandb_name',
@@ -258,7 +258,7 @@ def _add_lora_opts(parser: argparse.ArgumentParser) -> None:
     group.add_argument(
         '--lora_target_modules',
         nargs='+',
-        type=list[str],
+        type=str,
         help='LoRA target modules',
         default=['q_proj', 'v_proj'],
     )

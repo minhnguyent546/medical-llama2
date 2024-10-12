@@ -6,7 +6,7 @@ import torch
 from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import DataLoader, DistributedSampler
 
-from medical_llama2.utils import ensure_num_saved_checkpoints
+from medical_llama2.utils import ensure_num_saved_checkpoints, ensure_dir
 
 if 'PJRT_DEVICE' in os.environ:
     import torch_xla as xla  # noqa: F401
@@ -100,6 +100,7 @@ def save_model(args, model, optimizer, lr_scheduler, global_step, scaler):
     }
     if scaler.is_enabled():
         checkpoint_dict['scaler'] = scaler.state_dict()
+    ensure_dir(args.checkpoints_dir)
     ensure_num_saved_checkpoints(
         args.checkpoints_dir,
         'medical_llama2',
