@@ -191,7 +191,7 @@ def train_model(args: argparse.Namespace) -> None:
     else:
         raise ValueError(f'Unsupported scheduler decay method: {args.decay_method}')
 
-    raw_model = model
+    unwrapped_model = model
     # convert the model to distributed data parallel
     if args.ddp_enabled:
         model = DDP(model, device_ids=[args.local_rank], output_device=args.local_rank)
@@ -310,11 +310,12 @@ def train_model(args: argparse.Namespace) -> None:
                     if args.is_master:
                         utils.save_model(
                             args=args,
-                            model=raw_model,
+                            model=unwrapped_model,
                             optimizer=optimizer,
                             lr_scheduler=lr_scheduler,
                             global_step=global_step + 1,
                             scaler=scaler,
+                            is_peft_model=True,
                         )
                     if args.ddp_enabled:
                         dist.barrier()

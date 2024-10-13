@@ -6,6 +6,8 @@ import torch
 from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import DataLoader, DistributedSampler
 
+from peft import get_peft_model_state_dict
+
 from medical_llama2.utils import ensure_num_saved_checkpoints, ensure_dir
 
 if 'PJRT_DEVICE' in os.environ:
@@ -91,9 +93,14 @@ class CollatorWithPadding:
         batch.update(feature_dict)
         return batch
 
-def save_model(args, model, optimizer, lr_scheduler, global_step, scaler):
+def save_model(args, model, optimizer, lr_scheduler, global_step, scaler, is_peft_model: bool = False):
+    model_state_dict = None
+    if is_peft_model:
+        model_state_dict = get_peft_model_state_dict(model, adapter_name='default')
+    else:
+        model_state_dict = model.state_dict()
     checkpoint_dict = {
-        'model': model.state_dict(),
+        'model': model_state_dict,
         'optimizer': optimizer.state_dict(),
         'lr_scheduler': lr_scheduler.state_dict(),
         'global_step': global_step + 1,
