@@ -14,8 +14,8 @@ def setup_ddp(args: argparse.Namespace) -> None:
     args.local_master_rank = 0
     args.is_master = (args.rank == args.master_rank)
     args.is_local_master = (args.local_rank == args.local_master_rank)
-    os.environ['is_master'] = str(args.is_master)
-    os.environ['is_local_master'] = str(args.is_local_master)
+    os.environ['is_master'] = '1' if args.is_master else '0'
+    os.environ['is_local_master'] = '1' if args.is_local_master else '0'
     if args.ddp_enabled:
         # set appropriate CUDA device
         torch.cuda.set_device(args.local_rank)
