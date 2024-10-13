@@ -170,6 +170,7 @@ def train_model(args: argparse.Namespace) -> None:
         weight_decay=args.weight_decay,
         percentile_clipping=5,
     )
+    loss_func = nn.CrossEntropyLoss(ignore_index=tokenizer.pad_token_id)
 
     if args.decay_method == 'noam':
         lr_scheduler = torch.optim.lr_scheduler.LambdaLR(
@@ -200,6 +201,10 @@ def train_model(args: argparse.Namespace) -> None:
     wandb_accum_logs: list[dict[str, Any]] = []
     running_loss = AverageMeter('running_loss', device=device)
 
+    utils.master_print(
+        f'Total training steps: {args.train_steps} '
+        f'(roughly {args.train_steps / len(train_data_loader):0.2f} epoch(s))'
+    )
     if args.ddp_enabled:
         train_progressbar = tqdm(
             range(args.train_steps),
@@ -217,10 +222,7 @@ def train_model(args: argparse.Namespace) -> None:
     # set model in training mode
     model.train()
     optimizer.zero_grad()
-    utils.master_print(
-        f'Total training steps: {args.train_steps} '
-        f'(roughly {args.train_steps / len(train_data_loader):0.2f} epoch(s))'
-    )
+
     while global_step < args.train_steps:
         for batch_idx, batch in enumerate(train_data_loader):
             input_ids = batch['input_ids'].to(device)
@@ -233,8 +235,8 @@ def train_model(args: argparse.Namespace) -> None:
                 model.require_backward_grad_sync = (batch_idx + 1) % args.gradient_accum_step == 0
 
             with autocast_context:
-                outputs = model(input_ids=input_ids, attention_mask=attention_mask, labels=labels)
-                loss = outputs.loss
+                outputs = model(input_ids=input_ids, attention_mask=attention_mask)
+                loss = loss_func(outputs.logits.view(-1, tokenizer.vocab_size), labels.view(-1))
 
             if args.gradient_accum_step > 1:
                 loss /= args.gradient_accum_step
@@ -268,12 +270,14 @@ def train_model(args: argparse.Namespace) -> None:
                     if args.ddp_enabled:
                         running_loss.reduce(dst=args.master_rank)
                     valid_results = eval_model(
-                        model,
-                        device,
-                        validation_data_loader,
-                        args.valid_steps,
-                        args,
-                        autocast_context,
+                        model=model,
+                        device=device,
+                        loss_func=loss_func,
+                        tokenizer=tokenizer,
+                        eval_data_loader=validation_data_loader,
+                        valid_steps=args.valid_steps,
+                        args=args,
+                        autocast_context=autocast_context,
                     )
                     wandb_accum_logs[-1].update({
                         'loss/train': running_loss.average,
@@ -327,6 +331,8 @@ def train_model(args: argparse.Namespace) -> None:
 def eval_model(
     model,
     device: torch.device,
+    loss_func,
+    tokenizer,
     eval_data_loader,
     valid_steps: int,
     args: argparse.Namespace,
@@ -363,8 +369,8 @@ def eval_model(
             labels = batch['labels'].to(device)
 
             with autocast_context:
-                outputs = model(input_ids=input_ids, attention_mask=attention_mask, labels=labels)
-                loss = outputs.loss
+                outputs = model(input_ids=input_ids, attention_mask=attention_mask)
+                loss = loss_func(outputs.logits.view(-1, tokenizer.vocab_size), labels.view(-1))
 
             evaluation_loss.update(loss.detach())
             progress_bar.set_postfix({'loss': f'{loss:0.3f}'})
