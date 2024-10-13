@@ -204,6 +204,12 @@ def _add_common_training_opts(parser: argparse.ArgumentParser) -> None:
         default=1_000,
     )
     group.add_argument(
+        '--valid_steps',
+        type=int,
+        help='Validation interval',
+        default=50,
+    )
+    group.add_argument(
         '--save_interval',
         type=int,
         help='Steps between saving checkpoints (you SHOULD use the SAME value as --valid-interval for accurate training loss when resuming from previous checkpoint)',

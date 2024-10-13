@@ -153,8 +153,8 @@ def make_data_loaders(
         pin_memory=True,
     )
     test_data_loader = DataLoader(
-        train_dataset,
-        batch_size=per_device_train_batch_size,
+        test_dataset,
+        batch_size=per_device_eval_batch_size,
         collate_fn=data_collator,
         shuffle=False,
         sampler=test_sampler,

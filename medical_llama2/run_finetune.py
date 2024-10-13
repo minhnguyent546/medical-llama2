@@ -94,6 +94,11 @@ def train_model(args: argparse.Namespace) -> None:
         per_device_train_batch_size=per_device_train_batch_size,
         per_device_eval_batch_size=per_device_eval_batch_size,
     )
+    utils.master_print(
+        f'Dataset: train_size={len(train_data_loader)}, '
+        f'test_size={len(test_data_loader)}, '
+        f'validation_size={len(validation_data_loader)}'
+    )
 
     # training device
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -150,21 +155,21 @@ def train_model(args: argparse.Namespace) -> None:
         model.print_trainable_parameters()
 
     learning_rate = args.learning_rate
-    optimizer = torch.optim.AdamW(
-        model.parameters(),
-        lr=learning_rate,
-        betas=args.betas,
-        weight_decay=args.weight_decay,
-    )
-    # optimizer = create_loraplus_optimizer(
-    #     model=model,
-    #     optimizer_cls=bnb.optim.PagedAdam32bit,
+    # optimizer = torch.optim.AdamW(
+    #     model.parameters(),
     #     lr=learning_rate,
-    #     loraplus_lr_ratio=16,
     #     betas=args.betas,
     #     weight_decay=args.weight_decay,
-    #     percentile_clipping=5,
     # )
+    optimizer = create_loraplus_optimizer(
+        model=model,
+        optimizer_cls=bnb.optim.PagedAdam32bit,
+        lr=learning_rate,
+        loraplus_lr_ratio=16,
+        betas=args.betas,
+        weight_decay=args.weight_decay,
+        percentile_clipping=5,
+    )
 
     if args.decay_method == 'noam':
         lr_scheduler = torch.optim.lr_scheduler.LambdaLR(
@@ -212,6 +217,10 @@ def train_model(args: argparse.Namespace) -> None:
     # set model in training mode
     model.train()
     optimizer.zero_grad()
+    utils.master_print(
+        f'Total training steps: {args.train_steps} '
+        f'(roughly {args.train_steps / len(train_data_loader):0.2f} epoch(s))'
+    )
     while global_step < args.train_steps:
         for batch_idx, batch in enumerate(train_data_loader):
             input_ids = batch['input_ids'].to(device)
