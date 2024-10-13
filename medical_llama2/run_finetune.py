@@ -210,13 +210,13 @@ def train_model(args: argparse.Namespace) -> None:
             range(args.train_steps),
             desc=f'GPU{args.rank} - Training model',
             disable=args.local_rank != 0,
-            ncols=120,
+            ncols=125,
         )
     else:
         train_progressbar = tqdm(
             range(args.train_steps),
             desc=f'Training model',
-            ncols=120,
+            ncols=125,
         )
 
     # set model in training mode
@@ -348,14 +348,14 @@ def eval_model(
             total=valid_steps,
             desc=f'GPU{args.rank} - Evaluating model',
             disable=args.local_rank != 0,
-            ncols=120,
+            ncols=125,
         )
     else:
         progress_bar = tqdm(
             range(valid_steps),
             total=valid_steps,
             desc='Evaluating model',
-            ncols=120,
+            ncols=125,
         )
 
     # set model in evaluation mode
