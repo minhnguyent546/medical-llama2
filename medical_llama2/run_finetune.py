@@ -102,7 +102,7 @@ def train_model(args: argparse.Namespace) -> None:
 
     # training device
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
-    device = torch.device(device)
+    device = torch.device(device, args.local_rank)
     utils.master_print(f'Using device: {device}')
 
     # logging with wandb
