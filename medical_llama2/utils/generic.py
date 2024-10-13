@@ -24,8 +24,8 @@ def load_yaml_config(config_path: str):
     return config
 
 def master_print(*values: object, local_master: bool = False, **kwargs) -> None:
-    is_master = bool(os.environ.get('is_master', 0))
-    is_local_master = bool(os.environ.get('is_local_master', 0))
+    is_master = bool(int(os.environ.get('is_master', 0)))
+    is_local_master = bool(int(os.environ.get('is_local_master', 0)))
     should_print = (is_master or (local_master and is_local_master))
     if should_print:
         print(*values, **kwargs)
