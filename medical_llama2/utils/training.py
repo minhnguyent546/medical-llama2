@@ -105,7 +105,7 @@ def save_model(model, optimizer, lr_scheduler, global_step, scaler, args):
         file_or_dir_glob=r'medical_llama2-*',
         limit=args.saved_checkpoint_limit,
     )
-    ck_save_path = os.path.join(args.checkpoint_dir, f'medical_llama2-{global_step}')
+    ck_save_path = os.path.join(args.checkpoints_dir, f'medical_llama2-{global_step}')
     ensure_dir(ck_save_path)
     model.save_pretrained(os.path.join(ck_save_path, 'hf_model'))
     if not args.save_model_only:
