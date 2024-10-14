@@ -125,10 +125,10 @@ def train_model(args: argparse.Namespace) -> None:
 
     bnb_config = BitsAndBytesConfig(
         load_in_4bit=args.bnb_load_in_4bit,
-        bnb_4bit_quant_type=args.bnb_4bit_quant_type,  # nf4
-        bnb_4bit_use_double_quant=args.bnb_4bit_use_double_quant,  # true
-        bnb_4bit_compute_dtype=mp_dtype,  # bfloat16
-        bnb_4bit_quant_storage=args.bnb_4bit_quant_storage,  # bfloat16
+        bnb_4bit_quant_type=args.bnb_4bit_quant_type,
+        bnb_4bit_use_double_quant=args.bnb_4bit_use_double_quant,
+        bnb_4bit_compute_dtype=mp_dtype,
+        bnb_4bit_quant_storage=args.bnb_4bit_quant_storage,
     )
     model = AutoModelForCausalLM.from_pretrained(
         args.model_checkpoint,
@@ -137,7 +137,7 @@ def train_model(args: argparse.Namespace) -> None:
         trust_remote_code=True,
         torch_dtype=args.bnb_4bit_quant_storage,
     )
-    model.config.use_cache = False
+    model.config.use_cache = args.use_cache
     # setting config.pretraining_tp to a value different than 1 will activate the more accurate
     # but slower computation of the linear layers, which should better match the original logits
     model.config.pretraining_tp = 1;

@@ -168,6 +168,11 @@ def _add_common_training_opts(parser: argparse.ArgumentParser) -> None:
 
     # others
     group.add_argument(
+        '--use_cache',
+        action='store_true',
+        help='Whether to enable kv-cache',
+    )
+    group.add_argument(
         '--train_batch_size',
         type=int,
         help='Training batch size (global batch size)',
