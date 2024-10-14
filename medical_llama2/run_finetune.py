@@ -155,21 +155,7 @@ def train_model(args: argparse.Namespace) -> None:
         model.print_trainable_parameters()
 
     learning_rate = args.learning_rate
-    # optimizer = torch.optim.AdamW(
-    #     model.parameters(),
-    #     lr=learning_rate,
-    #     betas=args.betas,
-    #     weight_decay=args.weight_decay,
-    # )
-    optimizer = create_loraplus_optimizer(
-        model=model,
-        optimizer_cls=bnb.optim.PagedAdam32bit,
-        lr=learning_rate,
-        loraplus_lr_ratio=16,
-        betas=args.betas,
-        weight_decay=args.weight_decay,
-        percentile_clipping=5,
-    )
+    optimizer = utils.make_optimizer(model=model, args=args)
     loss_func = nn.CrossEntropyLoss(ignore_index=tokenizer.pad_token_id)
 
     if args.decay_method == 'noam':

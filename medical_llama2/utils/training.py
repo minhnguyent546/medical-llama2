@@ -7,12 +7,11 @@ from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import DataLoader, DistributedSampler
 
 from peft import get_peft_model_state_dict
+from peft.optimizers import create_loraplus_optimizer
 
-from medical_llama2.utils import ensure_num_saved_checkpoints, ensure_dir
+import bitsandbytes as bnb
 
-if 'PJRT_DEVICE' in os.environ:
-    import torch_xla as xla  # noqa: F401
-    import torch_xla.amp.syncfree as syncfree  # provide modified version of optimizers to avoid the additional sync between device and host
+from medical_llama2.utils import ensure_dir, ensure_num_saved_checkpoints
 
 
 def noam_decay(step_num: int, d_model: int, warmup_steps: int, factor: float = 1.0) -> float:
@@ -42,35 +41,41 @@ def cosine_decay(
         decayed_lr = min_lr + (lr - min_lr) * coeff
     return factor * decayed_lr
 
-def make_optimizer(
-    model,
-    device: torch.device,
-    optim_type: str,
-    lr: float,
-    betas: tuple[float, float] = (0.9, 0.999),
-    eps: float = 1e-8,
-    weight_decay: float = 0.0,
-    use_syncfree_optim: bool = False,
-) -> torch.optim.Optimizer:
-    param_list = [param for param in model.parameters() if param.requires_grad]
-    decay_params = [param for param in param_list if param.dim() >= 2]
-    no_decay_params = [param for param in param_list if param.dim() < 2]
-    param_groups = [
-        {'params': decay_params, 'weight_decay': weight_decay},
-        {'params': no_decay_params, 'weight_decay': 0.0},
-    ]
+def get_optim_cls(optim_type: str):
+    optim_type_to_cls = {
+        'adam': torch.optim.Adam,
+        'adamw': torch.optim.AdamW,
+        'bnb_adam32bit': bnb.optim.Adam32bit,
+        'bnb_adamw32bit': bnb.optim.AdamW32bit,
+        'bnb_adam8bit': bnb.optim.Adam8bit,
+        'nb_adamw8bit': bnb.optim.AdamW8bit,
+    }
     optim_type = optim_type.lower()
-    use_fused_impl = device.type == 'cuda'
-    if optim_type == 'adam':
-        adam_optim = syncfree.Adam if use_syncfree_optim else torch.optim.Adam
-        optimizer = adam_optim(param_groups, lr=lr, betas=betas, eps=eps, fused=use_fused_impl)
-    elif optim_type == 'adamw':
-        adamw_optim = syncfree.AdamW if use_syncfree_optim else torch.optim.AdamW
-        optimizer = adamw_optim(param_groups, lr=lr, betas=betas, eps=eps, fused=use_fused_impl)
-    else:
-        raise ValueError(f'Unsupported optimizer type: {optim_type}. Possible values are: adam, adamw')
+    if optim_type in optim_type_to_cls:
+        return optim_type_to_cls[optim_type]
+    raise ValueError(f'Unknown optim type: {optim_type}')
 
+def make_optimizer(model, args):
+    optim_cls = get_optim_cls(args.optim_type)
+    if args.optim_type.startswith('bnb_'):
+        optimizer = create_loraplus_optimizer(
+            model=model,
+            optimizer_cls=optim_cls,
+            lr=args.learning_rate,
+            loraplus_lr_ratio=args.loraplus_lr_ratio,
+            percentile_clipping=args.bnb_optim_percentile_clipping,
+            betas=args.betas,
+            weight_decay=args.weight_decay,
+        )
+    else:
+        optimizer = optim_cls(
+            model.parameters(),
+            lr=args.learning_rate,
+            betas=args.betas,
+            weight_decay=args.weight_decay,
+        )
     return optimizer
+
 
 class CollatorWithPadding:
     def __init__(self, padding_value: int, added_features: list[str], attention_mask_key: str = 'attention_mask') -> None:
