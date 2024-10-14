@@ -239,6 +239,11 @@ def _add_common_training_opts(parser: argparse.ArgumentParser) -> None:
         default=10,
     )
     group.add_argument(
+        '--save_model_only',
+        action='store_true',
+        help='Whether to save model state dict only and leave optimizer, scheduler, scaler, ....',
+    )
+    group.add_argument(
         '--max_grad_norm',
         type=float,
         help='Maximum gradient norm for gradient clipping (0.0 means no clipping)',

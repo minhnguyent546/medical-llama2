@@ -292,13 +292,12 @@ def train_model(args: argparse.Namespace) -> None:
                 if (global_step + 1) % args.save_interval == 0:
                     if args.is_master:
                         utils.save_model(
-                            args=args,
                             model=unwrapped_model,
                             optimizer=optimizer,
                             lr_scheduler=lr_scheduler,
                             global_step=global_step + 1,
                             scaler=scaler,
-                            is_peft_model=True,
+                            args=args,
                         )
                     if args.ddp_enabled:
                         dist.barrier()
