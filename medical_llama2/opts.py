@@ -116,7 +116,7 @@ def _add_common_training_opts(parser: argparse.ArgumentParser) -> None:
         '--optim_type',
         type=str,
         help='Which optimizer to use',
-        choices=['adam', 'adamw'],
+        choices=['adam', 'adamw', 'bnb_adam32bit', 'bnb_adamw32bit', 'bnb_adam8bit', 'bnb_adamw8bit'],
         default='adamw',
     )
     group.add_argument(

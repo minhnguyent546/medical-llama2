@@ -26,9 +26,6 @@ from peft import (
     get_peft_model,
     prepare_model_for_kbit_training,
 )
-from peft.optimizers import create_loraplus_optimizer
-
-import bitsandbytes as bnb
 
 import medical_llama2.opts as opts
 import medical_llama2.utils as utils
@@ -140,7 +137,7 @@ def train_model(args: argparse.Namespace) -> None:
     model.config.use_cache = args.use_cache
     # setting config.pretraining_tp to a value different than 1 will activate the more accurate
     # but slower computation of the linear layers, which should better match the original logits
-    model.config.pretraining_tp = 1;
+    model.config.pretraining_tp = 1
     peft_config = LoraConfig(
         r=args.lora_r,
         lora_alpha=args.lora_alpha,
@@ -155,21 +152,7 @@ def train_model(args: argparse.Namespace) -> None:
         model.print_trainable_parameters()
 
     learning_rate = args.learning_rate
-    # optimizer = torch.optim.AdamW(
-    #     model.parameters(),
-    #     lr=learning_rate,
-    #     betas=args.betas,
-    #     weight_decay=args.weight_decay,
-    # )
-    optimizer = create_loraplus_optimizer(
-        model=model,
-        optimizer_cls=bnb.optim.PagedAdam32bit,
-        lr=learning_rate,
-        loraplus_lr_ratio=16,
-        betas=args.betas,
-        weight_decay=args.weight_decay,
-        percentile_clipping=5,
-    )
+    optimizer = utils.make_optimizer(model=model, args=args)
     loss_func = nn.CrossEntropyLoss(ignore_index=tokenizer.pad_token_id)
 
     if args.decay_method == 'noam':
@@ -215,7 +198,7 @@ def train_model(args: argparse.Namespace) -> None:
     else:
         train_progressbar = tqdm(
             range(args.train_steps),
-            desc=f'Training model',
+            desc='Training model',
             ncols=125,
         )
 
