@@ -120,6 +120,18 @@ def _add_common_training_opts(parser: argparse.ArgumentParser) -> None:
         default='adamw',
     )
     group.add_argument(
+        '--loraplus_lr_ratio',
+        type=int,
+        help='loraplus_lr_ratio to use in create_loraplus_optimizer function',
+        default=16,
+    )
+    group.add_argument(
+        '--bnb_optim_percentile_clipping',
+        type=int,
+        help='percentile_clipping to use in bitsandbytes\' optimizers',
+        default=5,
+    )
+    group.add_argument(
         '--learning_rate',
         type=float,
         help='Learning rate',
