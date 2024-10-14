@@ -106,7 +106,6 @@ def save_model(model, optimizer, lr_scheduler, global_step, scaler, args):
         limit=args.saved_checkpoint_limit,
     )
     ck_save_path = os.path.join(args.checkpoints_dir, f'medical_llama2-{global_step}')
-    ensure_dir(ck_save_path)
     model.save_pretrained(os.path.join(ck_save_path, 'hf_model'))
     if not args.save_model_only:
         checkpoint_dict = {
@@ -116,7 +115,7 @@ def save_model(model, optimizer, lr_scheduler, global_step, scaler, args):
         }
         if scaler.is_enabled():
             checkpoint_dict['scaler'] = scaler.state_dict()
-        torch.save(checkpoint_dict, ck_save_path)
+        torch.save(checkpoint_dict, os.path.join(ck_save_path, 'other_states.pt'))
 
 def make_data_loaders(
     args,
