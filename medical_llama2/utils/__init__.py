@@ -24,5 +24,3 @@ from medical_llama2.utils.training import (
     noam_decay,
     save_model,
 )
-
-

@@ -26,9 +26,6 @@ from peft import (
     get_peft_model,
     prepare_model_for_kbit_training,
 )
-from peft.optimizers import create_loraplus_optimizer
-
-import bitsandbytes as bnb
 
 import medical_llama2.opts as opts
 import medical_llama2.utils as utils
@@ -140,7 +137,7 @@ def train_model(args: argparse.Namespace) -> None:
     model.config.use_cache = args.use_cache
     # setting config.pretraining_tp to a value different than 1 will activate the more accurate
     # but slower computation of the linear layers, which should better match the original logits
-    model.config.pretraining_tp = 1;
+    model.config.pretraining_tp = 1
     peft_config = LoraConfig(
         r=args.lora_r,
         lora_alpha=args.lora_alpha,
@@ -201,7 +198,7 @@ def train_model(args: argparse.Namespace) -> None:
     else:
         train_progressbar = tqdm(
             range(args.train_steps),
-            desc=f'Training model',
+            desc='Training model',
             ncols=125,
         )
 

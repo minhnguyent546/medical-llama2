@@ -48,7 +48,7 @@ def get_optim_cls(optim_type: str):
         'bnb_adam32bit': bnb.optim.Adam32bit,
         'bnb_adamw32bit': bnb.optim.AdamW32bit,
         'bnb_adam8bit': bnb.optim.Adam8bit,
-        'nb_adamw8bit': bnb.optim.AdamW8bit,
+        'bnb_adamw8bit': bnb.optim.AdamW8bit,
     }
     optim_type = optim_type.lower()
     if optim_type in optim_type_to_cls:

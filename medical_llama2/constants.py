@@ -9,4 +9,5 @@ class SpecialToken:
     START_SYS = '<<SYS>>'
     END_SYS = '<</SYS>>'
 
+
 SYSTEM_PROMPT = 'You are a doctor. You are talking to a patient. You are trying to diagnose the patient\'s illness. Please answer the following patent\'s question.'
