@@ -420,6 +420,7 @@ def eval_generation(
         output = model.generate(
             **model_inputs,
             do_sample=args.do_sample,
+            max_new_tokens=args.max_new_tokens,
             temperature=args.temperature,
             top_k=args.top_k,
             top_p=args.top_p,

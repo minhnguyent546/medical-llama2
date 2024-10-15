@@ -276,6 +276,11 @@ def _add_generation_opts(parser: argparse.ArgumentParser) -> None:
         help='Whether to do sampling when generating text',
     )
     group.add_argument(
+        '--max_new_tokens',
+        type=int,
+        help='Maximum number of new tokens',
+    )
+    group.add_argument(
         '--temperature',
         type=float,
         help='Temperature for generation',
