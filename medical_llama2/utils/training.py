@@ -6,7 +6,6 @@ import torch
 from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import DataLoader, DistributedSampler
 
-from peft import get_peft_model_state_dict
 from peft.optimizers import create_loraplus_optimizer
 
 import bitsandbytes as bnb

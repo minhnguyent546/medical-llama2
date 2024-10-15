@@ -223,8 +223,20 @@ def _add_common_training_opts(parser: argparse.ArgumentParser) -> None:
     group.add_argument(
         '--valid_steps',
         type=int,
-        help='Validation interval',
+        help='Number of validation steps',
         default=50,
+    )
+    group.add_argument(
+        '--generation_interval',
+        type=int,
+        help='Generation validation interval',
+        default=1_000,
+    )
+    group.add_argument(
+        '--generation_steps',
+        type=int,
+        help='Number of generation steps',
+        default=25,
     )
     group.add_argument(
         '--save_interval',

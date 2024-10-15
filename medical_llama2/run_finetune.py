@@ -11,8 +11,9 @@ import torch.amp
 import torch.distributed as dist
 import torch.nn as nn
 from torch.nn.parallel import DistributedDataParallel as DDP
+from torch.utils.data import DataLoader
 
-from datasets import DatasetDict, load_dataset
+import datasets
 from transformers import (
     AutoModelForCausalLM,
     AutoTokenizer,
@@ -29,6 +30,7 @@ from peft import (
 
 import medical_llama2.opts as opts
 import medical_llama2.utils as utils
+from medical_llama2.constants import SYSTEM_PROMPT
 from medical_llama2.medical_dataset import MedicalDataset
 from medical_llama2.meters import AverageMeter
 
@@ -57,7 +59,7 @@ def train_model(args: argparse.Namespace) -> None:
     )
 
     # dataset
-    raw_dataset: DatasetDict = load_dataset(
+    raw_dataset: datasets.DatasetDict = datasets.load_dataset(
         'ruslanmv/ai-medical-chatbot',
         trust_remote_code=True,
     )  # pyright: ignore[reportAssignmentType]
@@ -193,13 +195,13 @@ def train_model(args: argparse.Namespace) -> None:
             range(args.train_steps),
             desc=f'GPU{args.rank} - Training model',
             disable=args.local_rank != 0,
-            ncols=125,
+            ncols=120,
         )
     else:
         train_progressbar = tqdm(
             range(args.train_steps),
             desc='Training model',
-            ncols=125,
+            ncols=120,
         )
 
     # set model in training mode
@@ -258,7 +260,7 @@ def train_model(args: argparse.Namespace) -> None:
                         loss_func=loss_func,
                         tokenizer=tokenizer,
                         eval_data_loader=validation_data_loader,
-                        valid_steps=args.valid_steps,
+                        validation_steps=args.valid_steps,
                         args=args,
                         autocast_context=autocast_context,
                     )
@@ -267,6 +269,16 @@ def train_model(args: argparse.Namespace) -> None:
                         'loss/valid': valid_results['loss'],
                     })
                     running_loss.reset()
+
+                if (global_step + 1) % args.generation_interval == 0:
+                    eval_generation(
+                        model=model,
+                        device=device,
+                        dataset=validation_dataset.dataset,
+                        tokenizer=tokenizer,
+                        generation_steps=args.generation_steps,
+                        args=args,
+                    )
 
                 if (
                     len(wandb_accum_logs) >= args.wandb_logging_interval or
@@ -315,9 +327,9 @@ def eval_model(
     model,
     device: torch.device,
     loss_func,
-    tokenizer,
-    eval_data_loader,
-    valid_steps: int,
+    tokenizer: LlamaTokenizer,
+    eval_data_loader: DataLoader,
+    validation_steps: int,
     args: argparse.Namespace,
     autocast_context=None,
 ) -> dict[str, float]:
@@ -327,18 +339,18 @@ def eval_model(
 
     if args.ddp_enabled:
         progress_bar = tqdm(
-            range(valid_steps),
-            total=valid_steps,
+            range(validation_steps),
+            total=validation_steps,
             desc=f'GPU{args.rank} - Evaluating model',
             disable=args.local_rank != 0,
-            ncols=125,
+            ncols=120,
         )
     else:
         progress_bar = tqdm(
-            range(valid_steps),
-            total=valid_steps,
+            range(validation_steps),
+            total=validation_steps,
             desc='Evaluating model',
-            ncols=125,
+            ncols=120,
         )
 
     # set model in evaluation mode
@@ -358,7 +370,7 @@ def eval_model(
             evaluation_loss.update(loss.detach())
             progress_bar.set_postfix({'loss': f'{loss:0.3f}'})
             progress_bar.update()
-            if (batch_idx + 1) >= valid_steps:
+            if (batch_idx + 1) >= validation_steps:
                 break
 
     # set model back to the original mode
@@ -370,6 +382,54 @@ def eval_model(
     return {
         'loss': evaluation_loss.average,
     }
+
+def eval_generation(
+    model,
+    device: torch.device,
+    dataset: datasets.Dataset,
+    tokenizer: LlamaTokenizer,
+    generation_steps: int,
+    args: argparse.Namespace,
+) -> None:
+    generation_steps = min(generation_steps, len(dataset))
+
+    if args.ddp_enabled:
+        progress_bar = tqdm(
+            range(generation_steps),
+            total=generation_steps,
+            desc=f'GPU{args.rank} - Evaluating generation',
+            disable=args.local_rank != 0,
+            ncols=120,
+        )
+    else:
+        progress_bar = tqdm(
+            range(generation_steps),
+            total=generation_steps,
+            desc='Evaluating generation',
+            ncols=120,
+        )
+
+    is_training = model.training
+    model.eval()
+    for idx, item in enumerate(dataset):
+        question = item['Patient']
+        answer = item['Doctor']
+        prompt = utils.generate_prompt(user_message=question, system_prompt=SYSTEM_PROMPT)
+        model_inputs = tokenizer([prompt], return_tensors='pt').to(device)
+        output = model.generate(**model_inputs, early_stopping=True, max_new_tokens=40)
+        model_response = tokenizer.decode(output[0, len(model_inputs['input_ids'][0]):], skip_special_tokens=False)
+
+        # TODO: calculate scores here (e.g. BERTScore)
+        if args.is_master:
+            progress_bar.write(f'>> QUESTION: {question}')
+            progress_bar.write(f'>> ANSWER: {answer}')
+            progress_bar.write(f'>> MODEL: {model_response}')
+
+        progress_bar.update()
+        if idx + 1 >= generation_steps:
+            break
+
+    model.train(is_training)
 
 def main():
     parser = argparse.ArgumentParser(

@@ -5,6 +5,7 @@ import os
 import random
 import re
 import shutil
+import textwrap
 import yaml
 from typing import Any
 
@@ -12,6 +13,8 @@ import numpy as np
 import torch
 import torch.nn as nn
 from pickle import Pickler, Unpickler
+
+from medical_llama2.constants import SpecialToken
 
 
 def set_seed(seed: int = 0x3f3f3f3f):
@@ -90,3 +93,30 @@ def tensor_to_object(tensor, tensor_size, group=None):
 
 def get_perplexity(loss: float) -> float:
     return math.exp(loss)
+
+def generate_training_prompt(
+    user_message: str,
+    response: str,
+    system_prompt: str | None = None,
+) -> str:
+    prompt = textwrap.dedent(f'''
+        {SpecialToken.SOS}{SpecialToken.START_INST} {SpecialToken.START_SYS}
+        {system_prompt}
+        {SpecialToken.END_SYS}
+
+        {user_message} {SpecialToken.END_INST} {response}{SpecialToken.EOS}''')
+
+    return prompt.strip()
+
+def generate_prompt(
+    user_message: str,
+    system_prompt: str | None = None,
+) -> str:
+    prompt = textwrap.dedent(f'''
+        {SpecialToken.SOS}{SpecialToken.START_INST} {SpecialToken.START_SYS}
+        {system_prompt}
+        {SpecialToken.END_SYS}
+
+        {user_message} {SpecialToken.END_INST}''')
+
+    return prompt.strip()
