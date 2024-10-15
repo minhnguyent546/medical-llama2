@@ -64,13 +64,13 @@ def train_model(args: argparse.Namespace) -> None:
         'ruslanmv/ai-medical-chatbot',
         trust_remote_code=True,
     )  # pyright: ignore[reportAssignmentType]
-    raw_dataset = raw_dataset['train'].train_test_split(
+    raw_dataset = raw_dataset['train'].shuffle(seed=args.seed).train_test_split(
         test_size=args.test_size,
         shuffle=True,
         seed=args.seed,
     )
     old_dataset = raw_dataset
-    raw_dataset = old_dataset['train'].train_test_split(
+    raw_dataset = old_dataset['train'].shuffle(seed=args.seed).train_test_split(
         test_size=args.validation_size,
         shuffle=True,
         seed=args.seed,

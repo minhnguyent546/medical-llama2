@@ -299,6 +299,7 @@ def _add_generation_opts(parser: argparse.ArgumentParser) -> None:
         '--num_beams',
         type=int,
         help='Number of beams for beam search',
+        default=1,
     )
     group.add_argument(
         '--generation_early_stopping',
@@ -314,6 +315,7 @@ def _add_generation_opts(parser: argparse.ArgumentParser) -> None:
         '--num_return_sequences',
         type=int,
         help='Number of highest scoring sequences to return',
+        default=1,
     )
     group.add_argument(
         '--repetition_penalty',
