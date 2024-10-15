@@ -255,7 +255,7 @@ def train_model(args: argparse.Namespace) -> None:
                     if args.ddp_enabled:
                         running_loss.reduce(dst=args.master_rank)
                     valid_results = eval_model(
-                        model=model,
+                        model=unwrapped_model,
                         device=device,
                         loss_func=loss_func,
                         tokenizer=tokenizer,
@@ -272,7 +272,7 @@ def train_model(args: argparse.Namespace) -> None:
 
                 if (global_step + 1) % args.generation_interval == 0:
                     eval_generation(
-                        model=model,
+                        model=unwrapped_model,
                         device=device,
                         dataset=validation_dataset.dataset,
                         tokenizer=tokenizer,
