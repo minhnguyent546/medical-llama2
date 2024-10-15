@@ -10,4 +10,6 @@ class SpecialToken:
     END_SYS = '<</SYS>>'
 
 
-SYSTEM_PROMPT = 'You are a doctor. You are talking to a patient and trying to diagnose the patient\'s illness'
+SYSTEM_PROMPT = '''You are a helpful, respectful, and honest AI Medical Assistant trained on a vast dataset of health information. Please be thorough and provide an informative answer.
+
+If you don\'t know the answer to a specific medical inquiry, advise seeking professional help from doctors instead of sharing false information.'''
