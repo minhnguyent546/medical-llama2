@@ -425,7 +425,7 @@ def eval_generation(
             top_k=args.top_k,
             top_p=args.top_p,
             num_beams=args.num_beams,
-            generation_early_stopping=args.generation_early_stopping,
+            early_stopping=args.generation_early_stopping,
             no_repeat_ngram_size=args.no_repeat_ngram_size,
             num_return_sequences=args.num_return_sequences,
             repetition_penalty=args.repetition_penalty,
