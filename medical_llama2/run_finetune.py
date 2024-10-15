@@ -18,6 +18,7 @@ from transformers import (
     AutoModelForCausalLM,
     AutoTokenizer,
     BitsAndBytesConfig,
+    LlamaModel,
     LlamaTokenizer,
 )
 
@@ -416,8 +417,19 @@ def eval_generation(
         answer = item['Doctor']
         prompt = utils.generate_prompt(user_message=question, system_prompt=SYSTEM_PROMPT)
         model_inputs = tokenizer([prompt], return_tensors='pt').to(device)
-        output = model.generate(**model_inputs, early_stopping=True, max_new_tokens=40)
-        model_response = tokenizer.decode(output[0, len(model_inputs['input_ids'][0]):], skip_special_tokens=False)
+        output = model.generate(
+            **model_inputs,
+            do_sample=args.do_sample,
+            temperature=args.temperature,
+            top_k=args.top_k,
+            top_p=args.top_p,
+            num_beams=args.num_beams,
+            generation_early_stopping=args.generation_early_stopping,
+            no_repeat_ngram_size=args.no_repeat_ngram_size,
+            num_return_sequences=args.num_return_sequences,
+            repetition_penalty=args.repetition_penalty,
+        )
+        model_response = tokenizer.decode(output[0, len(model_inputs['input_ids'][0]):], skip_special_tokens=True)
 
         # TODO: calculate scores here (e.g. BERTScore)
         if args.is_master:

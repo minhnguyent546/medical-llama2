@@ -8,6 +8,7 @@ def add_run_finetune_opts(parser: argparse.ArgumentParser) -> None:
     _add_lora_opts(parser)
     _add_bitsandbytes_opts(parser)
     _add_common_training_opts(parser)
+    _add_generation_opts(parser)
     _add_wandb_opts(parser)
     _add_ddp_training_opts(parser)
 
@@ -266,6 +267,55 @@ def _add_common_training_opts(parser: argparse.ArgumentParser) -> None:
         action='store_true',
         help='Whether to use gradient checkpointing (to save memory at the expense of slower backward pass)',
     )
+
+def _add_generation_opts(parser: argparse.ArgumentParser) -> None:
+    group = parser.add_argument_group('Generation')
+    group.add_argument(
+        '--do_sample',
+        action='store_true',
+        help='Whether to do sampling when generating text',
+    )
+    group.add_argument(
+        '--temperature',
+        type=float,
+        help='Temperature for generation',
+    )
+    group.add_argument(
+        '--top_k',
+        type=int,
+        help='Number of highest probability vocabulary tokens to keep (top-k filtering, 0 means deactivate top_k sampling)',
+    )
+    group.add_argument(
+        '--top_p',
+        type=float,
+        help='Keep the top tokens with cumulative probability >= top_p (nucleus filtering)',
+    )
+    group.add_argument(
+        '--num_beams',
+        type=int,
+        help='Number of beams for beam search',
+    )
+    group.add_argument(
+        '--generation_early_stopping',
+        action='store_true',
+        help='If set to `True` beam search is stopped when at least `num_beams` sentences finished per batch',
+    )
+    group.add_argument(
+        '--no_repeat_ngram_size',
+        type=int,
+        help='If set to int > 0, all ngrams of size `no_repeat_ngram_size` can only occur once',
+    )
+    group.add_argument(
+        '--num_return_sequences',
+        type=int,
+        help='Number of highest scoring sequences to return',
+    )
+    group.add_argument(
+        '--repetition_penalty',
+        type=float,
+        help='Penalty for repetition',
+    )
+
 
 def _add_ddp_training_opts(parser: argparse.ArgumentParser) -> None:
     group = parser.add_argument_group('DDP training')
