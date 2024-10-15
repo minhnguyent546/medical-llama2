@@ -66,9 +66,9 @@ def ensure_num_saved_checkpoints(
     for ck_basename in ck_basenames[:-limit]:
         full_path = os.path.join(checkpoints_dir, ck_basename)
         if os.path.isfile(full_path):
-            os.remove(ck_basename)
+            os.remove(full_path)
         else:
-            shutil.rmtree(ck_basename)
+            shutil.rmtree(full_path)
 
 def count_model_param(model: nn.Module) -> int:
     return sum(param.numel() for param in model.parameters() if param.requires_grad)
