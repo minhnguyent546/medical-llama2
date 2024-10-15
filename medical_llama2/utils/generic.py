@@ -3,6 +3,9 @@ import io
 import math
 import os
 import random
+import re
+import shutil
+import textwrap
 import yaml
 from typing import Any
 
@@ -10,6 +13,8 @@ import numpy as np
 import torch
 import torch.nn as nn
 from pickle import Pickler, Unpickler
+
+from medical_llama2.constants import SpecialToken
 
 
 def set_seed(seed: int = 0x3f3f3f3f):
@@ -41,19 +46,29 @@ def ensure_dir(path: str) -> str:
 def is_xla_device(device: torch.device | None) -> bool:
     return device is not None and device.type == 'xla'
 
+def get_checkpoint_timestamp(checkpoint_name: str) -> int:
+    timestamp = re.findall(r'\d+', checkpoint_name)
+    if not timestamp:
+        raise RuntimeError(f'Unable to infer timestamp from checkpoint: {checkpoint_name}')
+    return timestamp[0]
+
 def ensure_num_saved_checkpoints(
     checkpoints_dir: str,
-    model_basename: str,
+    file_or_dir_glob: str,
     limit: int,
 ) -> None:
-    checkpoints = glob.glob(os.path.join(checkpoints_dir, f'{model_basename}-*.pt'))
-    checkpoints = list(checkpoints)
-    if len(checkpoints) <= limit:
+    ck_basenames = glob.glob(file_or_dir_glob, root_dir=checkpoints_dir)
+    ck_basenames = list(ck_basenames)
+    if len(ck_basenames) <= limit:
         return
 
-    checkpoints = sorted(checkpoints, key=lambda x: int(x.split('-')[-1][:-3]))
-    for cp in checkpoints[:-limit]:
-        os.remove(cp)
+    ck_basenames = sorted(ck_basenames, key=get_checkpoint_timestamp)
+    for ck_basename in ck_basenames[:-limit]:
+        full_path = os.path.join(checkpoints_dir, ck_basename)
+        if os.path.isfile(full_path):
+            os.remove(ck_basename)
+        else:
+            shutil.rmtree(ck_basename)
 
 def count_model_param(model: nn.Module) -> int:
     return sum(param.numel() for param in model.parameters() if param.requires_grad)
@@ -78,3 +93,30 @@ def tensor_to_object(tensor, tensor_size, group=None):
 
 def get_perplexity(loss: float) -> float:
     return math.exp(loss)
+
+def generate_training_prompt(
+    user_message: str,
+    response: str,
+    system_prompt: str | None = None,
+) -> str:
+    prompt = textwrap.dedent(f'''
+        {SpecialToken.SOS}{SpecialToken.START_INST} {SpecialToken.START_SYS}
+        {system_prompt}
+        {SpecialToken.END_SYS}
+
+        {user_message} {SpecialToken.END_INST} {response}{SpecialToken.EOS}''')
+
+    return prompt.strip()
+
+def generate_prompt(
+    user_message: str,
+    system_prompt: str | None = None,
+) -> str:
+    prompt = textwrap.dedent(f'''
+        {SpecialToken.SOS}{SpecialToken.START_INST} {SpecialToken.START_SYS}
+        {system_prompt}
+        {SpecialToken.END_SYS}
+
+        {user_message} {SpecialToken.END_INST}''')
+
+    return prompt.strip()

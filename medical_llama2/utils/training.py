@@ -6,7 +6,6 @@ import torch
 from torch.nn.utils.rnn import pad_sequence
 from torch.utils.data import DataLoader, DistributedSampler
 
-from peft import get_peft_model_state_dict
 from peft.optimizers import create_loraplus_optimizer
 
 import bitsandbytes as bnb
@@ -98,28 +97,24 @@ class CollatorWithPadding:
         batch.update(feature_dict)
         return batch
 
-def save_model(args, model, optimizer, lr_scheduler, global_step, scaler, is_peft_model: bool = False):
-    model_state_dict = None
-    if is_peft_model:
-        model_state_dict = get_peft_model_state_dict(model, adapter_name='default')
-    else:
-        model_state_dict = model.state_dict()
-    checkpoint_dict = {
-        'model': model_state_dict,
-        'optimizer': optimizer.state_dict(),
-        'lr_scheduler': lr_scheduler.state_dict(),
-        'global_step': global_step + 1,
-    }
-    if scaler.is_enabled():
-        checkpoint_dict['scaler'] = scaler.state_dict()
+def save_model(model, optimizer, lr_scheduler, global_step, scaler, args):
     ensure_dir(args.checkpoints_dir)
     ensure_num_saved_checkpoints(
-        args.checkpoints_dir,
-        'medical_llama2',
-        args.saved_checkpoint_limit,
+        checkpoints_dir=args.checkpoints_dir,
+        file_or_dir_glob=r'medical_llama2-*',
+        limit=args.saved_checkpoint_limit,
     )
-    model_save_path = os.path.join(args.checkpoints_dir, f'medical_llama2-{global_step}.pt')
-    torch.save(checkpoint_dict, model_save_path)
+    ck_save_path = os.path.join(args.checkpoints_dir, f'medical_llama2-{global_step}')
+    model.save_pretrained(os.path.join(ck_save_path, 'hf_model'))
+    if not args.save_model_only:
+        checkpoint_dict = {
+            'optimizer': optimizer.state_dict(),
+            'lr_scheduler': lr_scheduler.state_dict(),
+            'global_step': global_step + 1,
+        }
+        if scaler.is_enabled():
+            checkpoint_dict['scaler'] = scaler.state_dict()
+        torch.save(checkpoint_dict, os.path.join(ck_save_path, 'other_states.pt'))
 
 def make_data_loaders(
     args,

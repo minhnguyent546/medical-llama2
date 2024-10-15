@@ -120,6 +120,18 @@ def _add_common_training_opts(parser: argparse.ArgumentParser) -> None:
         default='adamw',
     )
     group.add_argument(
+        '--loraplus_lr_ratio',
+        type=int,
+        help='loraplus_lr_ratio to use in create_loraplus_optimizer function',
+        default=16,
+    )
+    group.add_argument(
+        '--bnb_optim_percentile_clipping',
+        type=int,
+        help='percentile_clipping to use in bitsandbytes\' optimizers',
+        default=5,
+    )
+    group.add_argument(
         '--learning_rate',
         type=float,
         help='Learning rate',
@@ -211,8 +223,20 @@ def _add_common_training_opts(parser: argparse.ArgumentParser) -> None:
     group.add_argument(
         '--valid_steps',
         type=int,
-        help='Validation interval',
+        help='Number of validation steps',
         default=50,
+    )
+    group.add_argument(
+        '--generation_interval',
+        type=int,
+        help='Generation validation interval',
+        default=1_000,
+    )
+    group.add_argument(
+        '--generation_steps',
+        type=int,
+        help='Number of generation steps',
+        default=25,
     )
     group.add_argument(
         '--save_interval',
@@ -225,6 +249,11 @@ def _add_common_training_opts(parser: argparse.ArgumentParser) -> None:
         type=int,
         help='Maximum number of saved checkpoints, when reached, the oldest checkpoints will be removed',
         default=10,
+    )
+    group.add_argument(
+        '--save_model_only',
+        action='store_true',
+        help='Whether to save model state dict only and leave optimizer, scheduler, scaler, ....',
     )
     group.add_argument(
         '--max_grad_norm',
