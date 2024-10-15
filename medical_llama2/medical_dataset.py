@@ -7,7 +7,7 @@ import datasets
 from transformers import LlamaTokenizer
 
 from medical_llama2.constants import SYSTEM_PROMPT
-from medical_llama2.utils import generate_training_prompt
+from medical_llama2.utils import generate_prompt, generate_training_prompt
 
 
 class MedicalDataset(Dataset):
@@ -27,6 +27,10 @@ class MedicalDataset(Dataset):
             response=answer,
             system_prompt=SYSTEM_PROMPT,
         )
+        user_prompt = generate_prompt(
+            user_message=question,
+            system_prompt=SYSTEM_PROMPT,
+        )
 
         tokenized_prompt = self.tokenizer(
             prompt,
@@ -34,10 +38,20 @@ class MedicalDataset(Dataset):
             truncation=True,
             padding=False,
         )
+        tokenized_user_prompt = self.tokenizer(
+            user_prompt,
+            max_length=self.seq_length,
+            truncation=True,
+            padding=False,
+        )
+        user_prompt_token_len = len(tokenized_user_prompt['input_ids'])
+        user_prompt_token_len -= 1  # as tokens in labels are shifted one token to the left
 
         input_ids = tokenized_prompt['input_ids'][:-1]
         attention_mask = tokenized_prompt['attention_mask'][:-1]
         labels = tokenized_prompt['input_ids'][1:]
+        labels = [self.tokenizer.pad_token_id] * user_prompt_token_len \
+                + labels[user_prompt_token_len:]
         return {
             'input_ids': torch.tensor(input_ids, dtype=torch.int64),
             'labels': torch.tensor(labels, dtype=torch.int64),
