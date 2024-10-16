@@ -6,6 +6,8 @@ from contextlib import nullcontext
 from tqdm.autonotebook import tqdm
 from typing import Any
 
+import bert_score
+
 import torch
 import torch.amp
 import torch.distributed as dist
@@ -295,7 +297,7 @@ def train_model(args: argparse.Namespace) -> None:
                     running_loss.reset()
 
                 if (global_step + 1) % args.generation_interval == 0:
-                    eval_generation(
+                    gen_results = eval_generation(
                         model=unwrapped_model,
                         device=device,
                         dataset=validation_dataset.dataset,
@@ -303,6 +305,12 @@ def train_model(args: argparse.Namespace) -> None:
                         generation_steps=args.generation_steps,
                         args=args,
                     )
+                    if 'bert_score' in gen_results:
+                        wandb_accum_logs[-1].update({
+                            'bert_score/precision': gen_results['bert_score']['precision'],
+                            'bert_score/recall': gen_results['bert_score']['recall'],
+                            'bert_score/f1': gen_results['bert_score']['f1'],
+                        })
 
                 if (
                     len(wandb_accum_logs) >= args.wandb_logging_interval or
@@ -414,7 +422,7 @@ def eval_generation(
     tokenizer: LlamaTokenizer,
     generation_steps: int,
     args: argparse.Namespace,
-) -> None:
+) -> dict[str, Any]:
     generation_steps = min(generation_steps, len(dataset))
 
     if args.ddp_enabled:
@@ -432,6 +440,18 @@ def eval_generation(
             desc='Evaluating generation',
             ncols=120,
         )
+
+    bert_scorer = None
+    if args.is_master:
+        bert_scorer = bert_score.BERTScorer(
+            model_type='roberta-large',
+            device=device,
+            lang='en',
+            rescale_with_baseline=True,
+            use_fast_tokenizer=True,
+        )
+    predictions: list[str] = []
+    references: list[str] = []
 
     is_training = model.training
     model.eval()
@@ -460,12 +480,36 @@ def eval_generation(
             progress_bar.write(f'>> QUESTION: {question}')
             progress_bar.write(f'>> ANSWER: {answer}')
             progress_bar.write(f'>> MODEL: {model_response}')
+            predictions.append(model_response)
+            references.append(answer)
 
         progress_bar.update()
         if idx + 1 >= generation_steps:
             break
 
     model.train(is_training)
+    outputs = {}
+    if args.is_master:
+        assert bert_scorer is not None
+        P, R, F = bert_scorer.score(
+            cands=predictions,
+            refs=references,
+        )
+        bert_score_precision = P.mean().item()
+        bert_score_recall = R.mean().item()
+        bert_score_f1 = F.mean().item()
+        print(
+            f'BERTScore: precision = {bert_score_precision:0.3f}, '
+            f'recall = {bert_score_recall:0.3f}, '
+            f'F1 = {bert_score_f1:0.3f}'
+        )
+        outputs['bert_score'] = {
+            'precision': bert_score_precision,
+            'recall': bert_score_recall,
+            'f1': bert_score_f1,
+        }
+
+    return outputs
 
 def main():
     parser = argparse.ArgumentParser(
