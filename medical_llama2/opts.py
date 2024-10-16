@@ -227,6 +227,12 @@ def _add_common_training_opts(parser: argparse.ArgumentParser) -> None:
         choices=['float16', 'bfloat16'],
     )
     group.add_argument(
+        '--model_torch_dtype',
+        type=str,
+        help='Data type of tensors of the model',
+        default='float32',
+    )
+    group.add_argument(
         '--train_steps',
         type=int,
         help='Number of training steps',
@@ -380,9 +386,36 @@ def _add_lora_opts(parser: argparse.ArgumentParser) -> None:
 def _add_bitsandbytes_opts(parser: argparse.ArgumentParser) -> None:
     group = parser.add_argument_group('bitsandbytes config')
     group.add_argument(
-        '--bnb_load_in_4bit',
+        '--load_in_8bit',
         action='store_true',
-        help='Enable 4-bit quantization in bitsandbytes',
+        help='Enable 8-bit quantization in bitsandbytes with LLM.int8()',
+    )
+    group.add_argument(
+        '--load_in_4bit',
+        action='store_true',
+        help='Enable 4-bit quantization in bitsandbytes by replacing the Linear layers with FP4/NF4 layers from `bitsandbytes`',
+    )
+    group.add_argument(
+        '--llm_int8_threshold',
+        type=float,
+        help='Outlier threshold for outlier detection as described in LLM.int8()',
+        default=6.0,
+    )
+    group.add_argument(
+        '--llm_int8_skip_modules',
+        nargs='*',
+        type=str,
+        help='An explicit list of the modules that we do not want to convert in 8-bit (e.g. `lm_head` in CausalLM)',
+    )
+    group.add_argument(
+        '--llm_int8_enable_fp32_cpu_offload',
+        action='store_true',
+        help='If you want to split your model in different parts and run some parts in int8 on GPU and some parts in fp32 on CPU',
+    )
+    group.add_argument(
+        '--llm_int8_has_fp16_weight',
+        action='store_true',
+        help='This flag runs LLM.int8() with 16-bit main weights. This is useful for fine-tuning as the weights do not have to be converted back and forth for the backward pass',
     )
     group.add_argument(
         '--bnb_4bit_quant_type',
@@ -399,12 +432,12 @@ def _add_bitsandbytes_opts(parser: argparse.ArgumentParser) -> None:
     group.add_argument(
         '--bnb_4bit_compute_dtype',
         type=str,
-        help='bitsandbytes 4-bit compute dtype (should be the same as --mixed_precision)',
+        help='bitsandbytes 4-bit compute dtype',
         default="float16",
     )
     group.add_argument(
         '--bnb_4bit_quant_storage',
         type=str,
-        help='bitsandbytes 4-bit quantization storage dtype',
+        help='bitsandbytes 4-bit quantization storage dtype (should be the same as --model_torch_dtype)',
         default="float16",
     )

@@ -97,7 +97,7 @@ class CollatorWithPadding:
         batch.update(feature_dict)
         return batch
 
-def save_model(model, optimizer, lr_scheduler, global_step, scaler, args):
+def save_model(args, model, optimizer=None, lr_scheduler=None, global_step=None, scaler=None):
     ensure_dir(args.checkpoints_dir)
     ensure_num_saved_checkpoints(
         checkpoints_dir=args.checkpoints_dir,
@@ -107,14 +107,18 @@ def save_model(model, optimizer, lr_scheduler, global_step, scaler, args):
     ck_save_path = os.path.join(args.checkpoints_dir, f'medical_llama2-{global_step}')
     model.save_pretrained(os.path.join(ck_save_path, 'hf_model'))
     if not args.save_model_only:
-        checkpoint_dict = {
-            'optimizer': optimizer.state_dict(),
-            'lr_scheduler': lr_scheduler.state_dict(),
-            'global_step': global_step + 1,
-        }
-        if scaler.is_enabled():
+        checkpoint_dict = {}
+        if optimizer is not None:
+            checkpoint_dict['optimizer'] = optimizer.state_dict()
+        if lr_scheduler is not None:
+            checkpoint_dict['lr_scheduler'] = lr_scheduler.state_dict()
+        if global_step is not None:
+            checkpoint_dict['global_step'] = global_step
+        if scaler is not None and scaler.is_enabled():
             checkpoint_dict['scaler'] = scaler.state_dict()
-        torch.save(checkpoint_dict, os.path.join(ck_save_path, 'other_states.pt'))
+
+        if checkpoint_dict:
+            torch.save(checkpoint_dict, os.path.join(ck_save_path, 'other_states.pt'))
 
 def make_data_loaders(
     args,
@@ -177,20 +181,20 @@ def make_data_loaders(
     )
     return train_data_loader, test_data_loader, validation_data_loader
 
-def get_mp_dtype(args, device: torch.device) -> torch.dtype:
+def get_mp_dtype(mixed_precision: str, device: torch.device, verbose: bool = True) -> torch.dtype:
     mp_dtype = torch.float32
-    if device.type == 'cuda' and args.mixed_precision == 'float16':
+    if device.type == 'cuda' and mixed_precision == 'float16':
         mp_dtype = torch.float16
-        if args.is_master:
+        if verbose:
             print('Mixed precision training is enabled with float16')
-    elif device.type == 'cuda' and args.mixed_precision == 'bfloat16':
+    elif device.type == 'cuda' and mixed_precision == 'bfloat16':
         if torch.cuda.is_bf16_supported():
             mp_dtype = torch.bfloat16
-            if args.is_master:
+            if verbose:
                 print('Mixed precision training is enabled with bfloat16')
         else:
             mp_dtype = torch.float16
-            if args.is_master:
+            if verbose:
                 print('bfloat16 is not supported on your hardware, fallback to float16')
 
     return mp_dtype
