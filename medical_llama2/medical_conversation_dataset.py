@@ -9,15 +9,19 @@ from transformers import LlamaTokenizer
 from medical_llama2.constants import SYSTEM_PROMPT
 
 
-class MedicalDataset(Dataset):
+class MedicalConversationDataset(Dataset):
     def __init__(
         self,
         dataset: datasets.Dataset,
+        question_field: str,
+        answer_field: str,
         tokenizer: LlamaTokenizer,
         seq_length: int,
         train_on_inputs: bool = True,
     ):
         self.dataset = dataset
+        self.question_field = question_field
+        self.answer_field = answer_field
         self.tokenizer = tokenizer
         self.seq_length = seq_length
         self.train_on_inputs = train_on_inputs
@@ -26,8 +30,8 @@ class MedicalDataset(Dataset):
         return len(self.dataset)
 
     def __getitem__(self, index: int) -> dict[str, torch.Tensor | list[Any]]:
-        question = self.dataset[index]['Patient']
-        answer = self.dataset[index]['Doctor']
+        question = self.dataset[index][self.question_field]
+        answer = self.dataset[index][self.answer_field]
         prompt = self.tokenizer.apply_chat_template([
             {'role': 'system', 'content': SYSTEM_PROMPT},
             {'role': 'user', 'content': question},

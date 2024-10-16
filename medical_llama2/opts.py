@@ -30,6 +30,18 @@ def _add_general_opts(parser: argparse.ArgumentParser) -> None:
 def _add_dataset_opts(parser: argparse.ArgumentParser) -> None:
     group = parser.add_argument_group('Dataset')
     group.add_argument(
+        '--question_field',
+        type=str,
+        help='Name of the field containing questions',
+        default='question',
+    )
+    group.add_argument(
+        '--answer_field',
+        type=str,
+        help='Name of the field containing answers',
+        default='answer',
+    )
+    group.add_argument(
         '--test_size',
         type=int,
         help='Test size',

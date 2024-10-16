@@ -32,7 +32,7 @@ from peft import (
 import medical_llama2.opts as opts
 import medical_llama2.utils as utils
 from medical_llama2.constants import SYSTEM_PROMPT
-from medical_llama2.medical_dataset import MedicalDataset
+from medical_llama2.medical_conversation_dataset import MedicalConversationDataset
 from medical_llama2.meters import AverageMeter
 
 
@@ -79,16 +79,19 @@ def train_model(args: argparse.Namespace) -> None:
     raw_dataset['test'] = old_dataset['test']
 
     # MedicalDataset
-    train_dataset = MedicalDataset(
-        dataset=raw_dataset['train'], tokenizer=tokenizer,
+    train_dataset = MedicalConversationDataset(
+        dataset=raw_dataset['train'], question_field=args.question_field,
+        answer_field=args.answer_field, tokenizer=tokenizer,
         seq_length=args.seq_length, train_on_inputs=args.train_on_inputs,
     )
-    validation_dataset = MedicalDataset(
-        dataset=raw_dataset['validation'], tokenizer=tokenizer,
+    validation_dataset = MedicalConversationDataset(
+        dataset=raw_dataset['validation'], question_field=args.question_field,
+        answer_field=args.answer_field, tokenizer=tokenizer,
         seq_length=args.seq_length, train_on_inputs=args.train_on_inputs,
     )
-    test_dataset = MedicalDataset(
-        dataset=raw_dataset['test'], tokenizer=tokenizer,
+    test_dataset = MedicalConversationDataset(
+        dataset=raw_dataset['test'], question_field=args.question_field,
+        answer_field=args.answer_field, tokenizer=tokenizer,
         seq_length=args.seq_length, train_on_inputs=args.train_on_inputs,
     )
     data_collator = utils.CollatorWithPadding(
@@ -425,8 +428,8 @@ def eval_generation(
     is_training = model.training
     model.eval()
     for idx, item in enumerate(dataset):
-        question = item['Patient']
-        answer = item['Doctor']
+        question = item[args.question_field]
+        answer = item[args.answer_field]
         prompt = utils.generate_prompt(user_message=question, system_prompt=SYSTEM_PROMPT)
         model_inputs = tokenizer([prompt], return_tensors='pt').to(device)
         output = model.generate(
