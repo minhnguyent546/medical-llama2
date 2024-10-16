@@ -79,10 +79,22 @@ def train_model(args: argparse.Namespace) -> None:
     raw_dataset['test'] = old_dataset['test']
 
     # MedicalDataset
-    train_dataset = MedicalDataset(dataset=raw_dataset['train'], tokenizer=tokenizer, seq_length=args.seq_length)
-    validation_dataset = MedicalDataset(dataset=raw_dataset['validation'], tokenizer=tokenizer, seq_length=args.seq_length)
-    test_dataset = MedicalDataset(dataset=raw_dataset['test'], tokenizer=tokenizer, seq_length=args.seq_length)
-    data_collator = utils.CollatorWithPadding(tokenizer.pad_token_id, added_features=['input_ids', 'labels', 'attention_mask'])
+    train_dataset = MedicalDataset(
+        dataset=raw_dataset['train'], tokenizer=tokenizer,
+        seq_length=args.seq_length, train_on_inputs=args.train_on_inputs,
+    )
+    validation_dataset = MedicalDataset(
+        dataset=raw_dataset['validation'], tokenizer=tokenizer,
+        seq_length=args.seq_length, train_on_inputs=args.train_on_inputs,
+    )
+    test_dataset = MedicalDataset(
+        dataset=raw_dataset['test'], tokenizer=tokenizer,
+        seq_length=args.seq_length, train_on_inputs=args.train_on_inputs,
+    )
+    data_collator = utils.CollatorWithPadding(
+        tokenizer.pad_token_id,
+        added_features=['input_ids', 'labels', 'attention_mask'],
+    )
 
     # data loaders
     train_data_loader, test_data_loader, validation_data_loader = utils.make_data_loaders(
