@@ -148,7 +148,7 @@ def make_data_loaders(
             drop_last=True,
         )
         validation_sampler = DistributedSampler(
-            test_dataset,
+            validation_dataset,
             num_replicas=args.world_size,
             rank=args.rank,
             shuffle=False,
