@@ -30,6 +30,28 @@ def _add_general_opts(parser: argparse.ArgumentParser) -> None:
 def _add_dataset_opts(parser: argparse.ArgumentParser) -> None:
     group = parser.add_argument_group('Dataset')
     group.add_argument(
+        '--dataset_path',
+        type=str,
+        help='Path of the dataset to load (can be a path to a huggingface\'s dataset or a json, csv, parquet, etc files)',
+    )
+    group.add_argument(
+        '--dataset_name',
+        type=str,
+        help='Name of the dataset',
+    )
+    group.add_argument(
+        '--dataset_data_files',
+        nargs='*',
+        type=str,
+        help='Path to the dataset files if using local files (e.g. json, csv, etc)',
+    )
+    group.add_argument(
+        '--dataset_num_procs',
+        type=int,
+        help='Number of processes to use for loading the dataset',
+        default=4,
+    )
+    group.add_argument(
         '--question_field',
         type=str,
         help='Name of the field containing questions',

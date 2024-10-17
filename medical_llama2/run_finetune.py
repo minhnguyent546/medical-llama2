@@ -63,7 +63,10 @@ def train_model(args: argparse.Namespace) -> None:
 
     # dataset
     raw_dataset: datasets.DatasetDict = datasets.load_dataset(
-        'ruslanmv/ai-medical-chatbot',
+        path=args.dataset_path,
+        name=args.dataset_name,
+        data_files=args.dataset_data_files,
+        num_proc=args.dataset_num_procs,
         trust_remote_code=True,
     )  # pyright: ignore[reportAssignmentType]
     raw_dataset = raw_dataset['train'].shuffle(seed=args.seed).train_test_split(
