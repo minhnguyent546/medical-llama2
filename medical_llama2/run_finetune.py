@@ -171,6 +171,7 @@ def train_model(args: argparse.Namespace) -> None:
         lora_alpha=args.lora_alpha,
         lora_dropout=args.lora_dropout,
         target_modules=args.lora_target_modules,
+        modules_to_save=args.lora_modules_to_save,
         bias='none',
         task_type=TaskType.CAUSAL_LM,
     )

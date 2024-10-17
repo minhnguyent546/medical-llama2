@@ -382,6 +382,12 @@ def _add_lora_opts(parser: argparse.ArgumentParser) -> None:
         help='LoRA target modules',
         default=['q_proj', 'v_proj'],
     )
+    group.add_argument(
+        '--lora_modules_to_save',
+        nargs='*',
+        type=str,
+        help='List of modules apart from adapter layers to be set as trainable and saved in the final checkpoint',
+    )
 
 def _add_bitsandbytes_opts(parser: argparse.ArgumentParser) -> None:
     group = parser.add_argument_group('bitsandbytes config')
