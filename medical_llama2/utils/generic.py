@@ -5,7 +5,6 @@ import os
 import random
 import re
 import shutil
-import textwrap
 import yaml
 from typing import Any
 
@@ -14,6 +13,10 @@ import torch
 import torch.nn as nn
 from pickle import Pickler, Unpickler
 
+from medical_llama2.constants import (
+    ALPACA_SYSTEM_PROMPT,
+    LLAMA_SYSTEM_PROMPT,
+)
 from medical_llama2.constants import SpecialToken
 
 
@@ -96,7 +99,6 @@ def get_perplexity(loss: float) -> float:
 
 def generate_llama2_prompt(
     user_message: str,
-    system_prompt: str,
     response: str | None = None,
 ) -> str:
     """
@@ -104,10 +106,36 @@ def generate_llama2_prompt(
     """
     prompt = (
         f'{SpecialToken.SOS}{SpecialToken.START_INST} {SpecialToken.START_SYS}\n'
-        f'{system_prompt}\n'
+        f'{LLAMA_SYSTEM_PROMPT}\n'
         f'{SpecialToken.END_SYS}\n\n'
         f'{user_message} {SpecialToken.END_INST}'
     )
     if response is not None:
-        prompt += f' {response} {SpecialToken.EOS}'
+        prompt += f' {response}'
+    return prompt.strip()
+
+def generate_alpaca_prompt(
+    instruction: str,
+    input: str | None = None,
+    response: str | None = None,
+) -> str:
+    prompt = ''
+    if input is not None and input:
+        prompt = (
+            f'{ALPACA_SYSTEM_PROMPT}\n\n'
+            f'### Instruction:\n'
+            f'{instruction}\n\n'
+            f'### Input:\n'
+            f'{input}\n\n'
+            f'### Response:\n'
+            f'{response}'
+        )
+    else:
+        prompt = (
+            f'{ALPACA_SYSTEM_PROMPT}\n\n'
+            f'### Instruction:\n'
+            f'{instruction}\n\n'
+            f'### Response:\n'
+            f'{response}'
+        )
     return prompt.strip()

@@ -33,8 +33,11 @@ from peft import (
 
 import medical_llama2.opts as opts
 import medical_llama2.utils as utils
-from medical_llama2.constants import SYSTEM_PROMPT
-from medical_llama2.medical_conversation_dataset import MedicalConversationDataset
+from medical_llama2.constants import (
+    ALPACA_SYSTEM_PROMPT,
+    LLAMA_SYSTEM_PROMPT,
+)
+from medical_llama2.dialogue_dataset import DialogueDataset
 from medical_llama2.meters import AverageMeter
 
 
@@ -84,24 +87,31 @@ def train_model(args: argparse.Namespace) -> None:
     raw_dataset['test'] = old_dataset['test']
 
     # MedicalDataset
-    train_dataset = MedicalConversationDataset(
-        dataset=raw_dataset['train'], question_field=args.question_field,
-        answer_field=args.answer_field, tokenizer=tokenizer,
-        seq_length=args.seq_length, train_on_inputs=args.train_on_inputs,
+    train_dataset = DialogueDataset(
+        dataset=raw_dataset['train'], tokenizer=tokenizer,
+        seq_length=args.seq_length, input_field=args.input_field,
+        output_field=args.output_field, instruction_field=args.instruction_field,
+        train_on_inputs=args.train_on_inputs, prompt_template=args.prompt_template,
+        dataset_num_procs=args.dataset_num_procs,
     )
-    validation_dataset = MedicalConversationDataset(
-        dataset=raw_dataset['validation'], question_field=args.question_field,
-        answer_field=args.answer_field, tokenizer=tokenizer,
-        seq_length=args.seq_length, train_on_inputs=args.train_on_inputs,
+    validation_dataset = DialogueDataset(
+        dataset=raw_dataset['validation'], tokenizer=tokenizer,
+        seq_length=args.seq_length, input_field=args.input_field,
+        output_field=args.output_field, instruction_field=args.instruction_field,
+        train_on_inputs=args.train_on_inputs, prompt_template=args.prompt_template,
+        dataset_num_procs=args.dataset_num_procs,
     )
-    test_dataset = MedicalConversationDataset(
-        dataset=raw_dataset['test'], question_field=args.question_field,
-        answer_field=args.answer_field, tokenizer=tokenizer,
-        seq_length=args.seq_length, train_on_inputs=args.train_on_inputs,
+    test_dataset = DialogueDataset(
+        dataset=raw_dataset['test'], tokenizer=tokenizer,
+        seq_length=args.seq_length, input_field=args.input_field,
+        output_field=args.output_field, instruction_field=args.instruction_field,
+        train_on_inputs=args.train_on_inputs, prompt_template=args.prompt_template,
+        dataset_num_procs=args.dataset_num_procs,
     )
     data_collator = utils.CollatorWithPadding(
-        tokenizer.pad_token_id,
+        padding_value=tokenizer.pad_token_id,
         added_features=['input_ids', 'labels', 'attention_mask'],
+        attention_mask_key='attention_mask',
     )
 
     # data loaders
@@ -460,9 +470,18 @@ def eval_generation(
     is_training = model.training
     model.eval()
     for idx, item in enumerate(dataset):
-        question = item[args.question_field]
-        answer = item[args.answer_field]
-        prompt = utils.generate_prompt(user_message=question, system_prompt=SYSTEM_PROMPT)
+        input_data = item[args.input_field]
+        output_data = item[args.output_field]
+        if args.prompt_template == 'llama2':
+            prompt = utils.generate_llama2_prompt(
+                user_message=item[args.input_field],
+            )
+        else:
+            prompt = utils.generate_alpaca_prompt(
+                instruction=item[args.instruction_field],
+                input=item[args.input_field],
+                response='',
+            )
         model_inputs = tokenizer([prompt], return_tensors='pt').to(device)
         output = model.generate(
             **model_inputs,
@@ -481,11 +500,11 @@ def eval_generation(
 
         # TODO: calculate scores here (e.g. BERTScore)
         if args.is_master:
-            progress_bar.write(f'>> QUESTION: {question}')
-            progress_bar.write(f'>> ANSWER: {answer}')
+            progress_bar.write(f'>> INPUT: {input_data}')
+            progress_bar.write(f'>> OUTPUT: {output_data}')
             progress_bar.write(f'>> MODEL: {model_response}')
             predictions.append(model_response)
-            references.append(answer)
+            references.append(output_data)
 
         progress_bar.update()
         if idx + 1 >= generation_steps:

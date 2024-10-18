@@ -5,6 +5,7 @@ from medical_llama2.utils.generic import (
     count_model_param,
     ensure_dir,
     ensure_num_saved_checkpoints,
+    generate_alpaca_prompt,
     generate_llama2_prompt,
     get_perplexity,
     is_xla_device,

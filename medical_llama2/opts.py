@@ -52,16 +52,21 @@ def _add_dataset_opts(parser: argparse.ArgumentParser) -> None:
         default=4,
     )
     group.add_argument(
-        '--question_field',
+        '--input_field',
         type=str,
-        help='Name of the field containing questions',
-        default='question',
+        help='Name of the input field of the dataset (e.g. field containing user message)',
+        default='input',
     )
     group.add_argument(
-        '--answer_field',
+        '--output_field',
         type=str,
-        help='Name of the field containing answers',
-        default='answer',
+        help='Name of the output field of the dataset (e.g. field containing model response)',
+        default='output',
+    )
+    group.add_argument(
+        '--instruction_field',
+        type=str,
+        help='Name of the instruction field of the dataset (e.g. field containing instruction when using Alpaca dataset)',
     )
     group.add_argument(
         '--test_size',
@@ -145,6 +150,15 @@ def _add_wandb_opts(parser: argparse.ArgumentParser) -> None:
 
 def _add_common_training_opts(parser: argparse.ArgumentParser) -> None:
     group = parser.add_argument_group('Training')
+
+    # prompt template
+    group.add_argument(
+        '--prompt_template',
+        type=str,
+        help='Which prompt template to use',
+        choices=['llama2', 'alpaca'],
+        default='llama2',
+    )
 
     # optimizer options
     group.add_argument(
