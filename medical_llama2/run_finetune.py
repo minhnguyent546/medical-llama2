@@ -250,7 +250,6 @@ def train_model(args: argparse.Namespace) -> None:
             input_ids = batch['input_ids'].to(device)
             attention_mask = batch['attention_mask'].to(device)
             labels = batch['labels'].to(device)
-
             if args.ddp_enabled:
                 # we only sync gradients at the last step of gradient accumulation
                 # we can use the below trick or model.no_sync context manager (see: https://github.com/pytorch/pytorch/blob/main/torch/nn/parallel/distributed.py#L1404)
@@ -500,9 +499,11 @@ def eval_generation(
             repetition_penalty=args.repetition_penalty,
         )
         model_response = tokenizer.decode(output[0, len(model_inputs['input_ids'][0]):], skip_special_tokens=True)
-
+        model_response = model_response.strip()
         # TODO: calculate scores here (e.g. BERTScore)
         if args.is_master:
+            if args.instruction_field in item:
+                progress_bar.write(f'>> INST: {item[args.instruction_field]}')
             progress_bar.write(f'>> INPUT: {input_data}')
             progress_bar.write(f'>> OUTPUT: {output_data}')
             progress_bar.write(f'>> MODEL: {model_response}')
