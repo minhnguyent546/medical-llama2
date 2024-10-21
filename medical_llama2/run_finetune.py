@@ -44,8 +44,8 @@ def train_model(args: argparse.Namespace) -> None:
     # tokenizer
     tokenizer: LlamaTokenizer = AutoTokenizer.from_pretrained(args.tokenizer_checkpoint)
     if tokenizer.pad_token is None:
-        tokenizer.pad_token = tokenizer.unk_token
-        tokenizer.padding_side = 'right'
+        tokenizer.pad_token = tokenizer.eos_token
+    tokenizer.padding_side = 'right'
 
     if args.train_batch_size % args.world_size != 0:
         raise ValueError('train_batch_size must be divisible by world_size')
