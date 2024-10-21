@@ -278,7 +278,6 @@ def _add_common_training_opts(parser: argparse.ArgumentParser) -> None:
         '--valid_interval',
         type=int,
         help='Validation interval',
-        default=1_000,
     )
     group.add_argument(
         '--valid_steps',
@@ -290,7 +289,6 @@ def _add_common_training_opts(parser: argparse.ArgumentParser) -> None:
         '--generation_interval',
         type=int,
         help='Generation validation interval',
-        default=1_000,
     )
     group.add_argument(
         '--generation_steps',

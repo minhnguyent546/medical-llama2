@@ -291,7 +291,7 @@ def train_model(args: argparse.Namespace) -> None:
                 lr_scheduler.step()
                 running_loss.update(batch_loss)
 
-                if (global_step + 1) % args.valid_interval == 0:
+                if args.valid_interval is not None and (global_step + 1) % args.valid_interval == 0:
                     if args.ddp_enabled:
                         running_loss.reduce(dst=args.master_rank)
                     valid_results = eval_model(
@@ -309,7 +309,7 @@ def train_model(args: argparse.Namespace) -> None:
                     })
                     running_loss.reset()
 
-                if (global_step + 1) % args.generation_interval == 0:
+                if args.generation_interval is not None and (global_step + 1) % args.generation_interval == 0:
                     gen_results = eval_generation(
                         model=unwrapped_model,
                         device=device,
