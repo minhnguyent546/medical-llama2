@@ -1,5 +1,6 @@
 bert_score==0.3.13
 bitsandbytes==0.44.1
+datasets==3.0.1
 numpy==1.26.4
 peft==0.13.0
 tokenizers==0.19.1
