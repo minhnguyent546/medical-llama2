@@ -108,7 +108,7 @@ class DialogueDataset(Dataset):
                 padding=False,
             )
             user_prompt_token_len = len(tokenized_user_prompt['input_ids'])
-            labels = [self.tokenizer.pad_token_id] * user_prompt_token_len \
+            labels = [-100] * user_prompt_token_len \
                 + labels[user_prompt_token_len:]
 
         return {
