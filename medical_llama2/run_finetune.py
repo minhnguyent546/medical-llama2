@@ -20,6 +20,7 @@ from transformers import (
     AutoModelForCausalLM,
     AutoTokenizer,
     BitsAndBytesConfig,
+    DataCollatorForSeq2Seq,
     LlamaModel,
     LlamaTokenizer,
 )
@@ -33,10 +34,6 @@ from peft import (
 
 import medical_llama2.opts as opts
 import medical_llama2.utils as utils
-from medical_llama2.constants import (
-    ALPACA_SYSTEM_PROMPT,
-    LLAMA_SYSTEM_PROMPT,
-)
 from medical_llama2.dialogue_dataset import DialogueDataset
 from medical_llama2.meters import AverageMeter
 
@@ -47,7 +44,7 @@ def train_model(args: argparse.Namespace) -> None:
     # tokenizer
     tokenizer: LlamaTokenizer = AutoTokenizer.from_pretrained(args.tokenizer_checkpoint)
     if tokenizer.pad_token is None:
-        tokenizer.pad_token = tokenizer.eos_token
+        tokenizer.pad_token = tokenizer.unk_token
         tokenizer.padding_side = 'right'
 
     if args.train_batch_size % args.world_size != 0:
@@ -108,10 +105,11 @@ def train_model(args: argparse.Namespace) -> None:
         train_on_inputs=args.train_on_inputs, prompt_template=args.prompt_template,
         dataset_num_procs=args.dataset_num_procs,
     )
-    data_collator = utils.CollatorWithPadding(
-        padding_value=tokenizer.pad_token_id,
-        added_features=['input_ids', 'labels', 'attention_mask'],
-        attention_mask_key='attention_mask',
+    data_collator = DataCollatorForSeq2Seq(
+        tokenizer=tokenizer,
+        padding=True,
+        return_tensors="pt",
+        pad_to_multiple_of=8,
     )
 
     # data loaders
@@ -195,7 +193,6 @@ def train_model(args: argparse.Namespace) -> None:
 
     learning_rate = args.learning_rate
     optimizer = utils.make_optimizer(model=model, args=args)
-    loss_func = nn.CrossEntropyLoss(ignore_index=tokenizer.pad_token_id)
 
     if args.decay_method == 'noam':
         lr_scheduler = torch.optim.lr_scheduler.LambdaLR(
@@ -260,9 +257,13 @@ def train_model(args: argparse.Namespace) -> None:
                 model.require_backward_grad_sync = (batch_idx + 1) % args.gradient_accum_step == 0
 
             with autocast_context:
-                outputs = model(input_ids=input_ids, attention_mask=attention_mask)
-                loss = loss_func(outputs.logits.view(-1, tokenizer.vocab_size), labels.view(-1))
+                outputs = model(
+                    input_ids=input_ids,
+                    attention_mask=attention_mask,
+                    labels=labels,
+                )
 
+            loss = outputs.loss
             if args.gradient_accum_step > 1:
                 loss /= args.gradient_accum_step
             batch_loss += loss.detach()
@@ -297,7 +298,6 @@ def train_model(args: argparse.Namespace) -> None:
                     valid_results = eval_model(
                         model=unwrapped_model,
                         device=device,
-                        loss_func=loss_func,
                         tokenizer=tokenizer,
                         eval_data_loader=validation_data_loader,
                         validation_steps=args.valid_steps,
@@ -372,7 +372,6 @@ def train_model(args: argparse.Namespace) -> None:
 def eval_model(
     model,
     device: torch.device,
-    loss_func,
     tokenizer: LlamaTokenizer,
     eval_data_loader: DataLoader,
     validation_steps: int,
@@ -410,9 +409,13 @@ def eval_model(
             labels = batch['labels'].to(device)
 
             with autocast_context:
-                outputs = model(input_ids=input_ids, attention_mask=attention_mask)
-                loss = loss_func(outputs.logits.view(-1, tokenizer.vocab_size), labels.view(-1))
+                outputs = model(
+                    input_ids=input_ids,
+                    attention_mask=attention_mask,
+                    labels=labels,
+                )
 
+            loss = outputs.loss
             evaluation_loss.update(loss.detach())
             progress_bar.set_postfix({'loss': f'{loss:0.3f}'})
             progress_bar.update()
