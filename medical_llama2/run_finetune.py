@@ -255,13 +255,9 @@ def train_model(args: argparse.Namespace) -> None:
                 model.require_backward_grad_sync = (batch_idx + 1) % args.gradient_accum_step == 0
 
             with autocast_context:
-                outputs = model(
-                    input_ids=input_ids,
-                    attention_mask=attention_mask,
-                    labels=labels,
-                )
+                outputs = model(input_ids=input_ids, attention_mask=attention_mask)
+                loss = utils.fixed_causal_lm_loss(outputs.logits, labels, tokenizer.vocab_size)
 
-            loss = outputs.loss
             if args.gradient_accum_step > 1:
                 loss /= args.gradient_accum_step
             batch_loss += loss.detach()
@@ -413,13 +409,9 @@ def eval_model(
             labels = batch['labels'].to(device)
 
             with autocast_context:
-                outputs = model(
-                    input_ids=input_ids,
-                    attention_mask=attention_mask,
-                    labels=labels,
-                )
+                outputs = model(input_ids=input_ids, attention_mask=attention_mask)
+                loss = utils.fixed_causal_lm_loss(outputs.logits, labels, tokenizer.vocab_size)
 
-            loss = outputs.loss
             evaluation_loss.update(loss.detach())
             progress_bar.set_postfix({'loss': f'{loss:0.3f}'})
             progress_bar.update()

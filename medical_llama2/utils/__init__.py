@@ -16,6 +16,7 @@ from medical_llama2.utils.generic import (
     set_seed,
     tensor_to_object,
 )
+from medical_llama2.utils.loss import fixed_causal_lm_loss, fixed_cross_entropy
 from medical_llama2.utils.text_processing import clean_text, normalize_tone
 from medical_llama2.utils.training import (
     CollatorWithPadding,
