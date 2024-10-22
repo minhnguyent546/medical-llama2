@@ -321,9 +321,9 @@ def train_model(args: argparse.Namespace) -> None:
                     for bs_key in ('bert_score', 'bert_score_unscaled'):
                         if bs_key in gen_results:
                             wandb_accum_logs[-1].update({
-                                bs_key: gen_results[bs_key]['precision'],
-                                bs_key: gen_results[bs_key]['recall'],
-                                bs_key: gen_results[bs_key]['f1'],
+                                f'{bs_key}/precision': gen_results[bs_key]['precision'],
+                                f'{bs_key}/recall': gen_results[bs_key]['recall'],
+                                f'{bs_key}/f1': gen_results[bs_key]['f1'],
                             })
 
                 if (
