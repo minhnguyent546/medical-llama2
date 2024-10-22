@@ -219,6 +219,7 @@ def train_model(args: argparse.Namespace) -> None:
 
     global_step = 0
     batch_loss = 0.0
+    num_items_in_batch = 0
     wandb_accum_logs: list[dict[str, Any]] = []
     running_loss = AverageMeter('running_loss', device=device)
 
@@ -256,15 +257,33 @@ def train_model(args: argparse.Namespace) -> None:
 
             with autocast_context:
                 outputs = model(input_ids=input_ids, attention_mask=attention_mask)
-                loss = utils.fixed_causal_lm_loss(outputs.logits, labels, tokenizer.vocab_size)
 
-            if args.gradient_accum_step > 1:
-                loss /= args.gradient_accum_step
-            batch_loss += loss.detach()
+                logits = outputs.logits
+                logits = logits.float()
+                # Shift so that tokens < n predict n
+                shift_logits = logits[..., :-1, :].contiguous()
+                shift_labels = labels[..., 1:].contiguous()
 
-            scaler.scale(loss).backward()
+                # Flatten the tokens
+                shift_logits = shift_logits.view(-1, tokenizer.vocab_size)
+                shift_labels = shift_labels.view(-1)
+                # Enable model parallelism
+                shift_labels = shift_labels.to(shift_logits.device)
+                batch_loss = batch_loss + nn.functional.cross_entropy(
+                    shift_logits,
+                    shift_labels,
+                    ignore_index=-100,
+                    reduction='sum',
+                )
+
+            num_items_in_batch += torch.count_nonzero(shift_labels != -100)
+
+            # scaler.scale(loss).backward()
 
             if (batch_idx + 1) % args.gradient_accum_step == 0:
+                batch_loss = batch_loss / num_items_in_batch
+                scaler.scale(batch_loss).backward()
+
                 wandb_accum_logs.append({})
                 if args.max_grad_norm > 0:
                     scaler.unscale_(optimizer)
@@ -364,6 +383,7 @@ def train_model(args: argparse.Namespace) -> None:
                     'loss': f'{batch_loss:0.3f}',
                 })
                 batch_loss = 0.0
+                num_items_in_batch = 0
                 global_step += 1
                 train_progressbar.update()
                 if global_step >= args.train_steps:
