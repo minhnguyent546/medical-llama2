@@ -2,6 +2,7 @@ from medical_llama2.utils.ddp import cleanup_ddp, setup_ddp
 from medical_llama2.utils.decoding import top_k_logits, top_p_logits
 from medical_llama2.utils.generic import (
     chunks,
+    compute_bert_score,
     count_model_param,
     ensure_dir,
     ensure_num_saved_checkpoints,

@@ -297,6 +297,13 @@ def _add_common_training_opts(parser: argparse.ArgumentParser) -> None:
         default=25,
     )
     group.add_argument(
+        '--bert_score_type',
+        type=str,
+        help='Bert score type to compute (i.e. un-scaled or scaled score)',
+        choices=['unscaled', 'scaled', 'both'],
+        default='scaled',
+    )
+    group.add_argument(
         '--save_interval',
         type=int,
         help='Steps between saving checkpoints (you should use a multiple of --valid-interval for accurate training figures (e.g. loss) when resuming from previous checkpoint)',

@@ -13,6 +13,8 @@ import torch
 import torch.nn as nn
 from pickle import Pickler, Unpickler
 
+from bert_score import BERTScorer
+
 from medical_llama2.constants import (
     ALPACA_SYSTEM_PROMPT,
     LLAMA_SYSTEM_PROMPT,
@@ -139,3 +141,17 @@ def generate_alpaca_prompt(
             f'{response}'
         )
     return prompt.strip()
+
+def compute_bert_score(bert_scorer: BERTScorer, cands, refs) -> dict[str, float]:
+    precision, recall, f1 = bert_scorer.score(
+        cands=cands,
+        refs=refs,
+    )
+    precision = precision.mean().item()
+    recall = recall.mean().item()
+    f1 = f1.mean().item()
+    return {
+        'precision': precision,
+        'recall': recall,
+        'f1': f1,
+    }

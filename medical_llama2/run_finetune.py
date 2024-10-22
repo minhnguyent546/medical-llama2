@@ -318,12 +318,13 @@ def train_model(args: argparse.Namespace) -> None:
                         generation_steps=args.generation_steps,
                         args=args,
                     )
-                    if 'bert_score' in gen_results:
-                        wandb_accum_logs[-1].update({
-                            'bert_score/precision': gen_results['bert_score']['precision'],
-                            'bert_score/recall': gen_results['bert_score']['recall'],
-                            'bert_score/f1': gen_results['bert_score']['f1'],
-                        })
+                    for bs_key in ('bert_score', 'bert_score_unscaled'):
+                        if bs_key in gen_results:
+                            wandb_accum_logs[-1].update({
+                                bs_key: gen_results[bs_key]['precision'],
+                                bs_key: gen_results[bs_key]['recall'],
+                                bs_key: gen_results[bs_key]['f1'],
+                            })
 
                 if (
                     len(wandb_accum_logs) >= args.wandb_logging_interval or
@@ -458,14 +459,21 @@ def eval_generation(
         )
 
     bert_scorer = None
+    bert_scorer_unscaled = None
     if args.is_master:
-        bert_scorer = bert_score.BERTScorer(
-            model_type='roberta-large',
-            device=device,
-            lang='en',
-            rescale_with_baseline=True,
-            use_fast_tokenizer=True,
-        )
+        bert_score_kwargs = {
+            'model_type': 'roberta-large',
+            'device': device,
+            'lang': 'en',
+            'use_fast_tokenizer': True,
+        }
+        if args.bert_score_type == 'unscaled' or args.bert_score_type == 'both':
+            bert_scorer_unscaled = bert_score.BERTScorer(**bert_score_kwargs)
+        if args.bert_score_type == 'scaled' or args.bert_score_type == 'both':
+            bert_scorer = bert_score.BERTScorer(
+                **bert_score_kwargs,
+                rescale_with_baseline=True,
+            )
     predictions: list[str] = []
     references: list[str] = []
 
@@ -517,24 +525,28 @@ def eval_generation(
     model.train(is_training)
     outputs = {}
     if args.is_master:
-        assert bert_scorer is not None
-        P, R, F = bert_scorer.score(
-            cands=predictions,
-            refs=references,
-        )
-        bert_score_precision = P.mean().item()
-        bert_score_recall = R.mean().item()
-        bert_score_f1 = F.mean().item()
-        print(
-            f'BERTScore: precision = {bert_score_precision:0.3f}, '
-            f'recall = {bert_score_recall:0.3f}, '
-            f'F1 = {bert_score_f1:0.3f}'
-        )
-        outputs['bert_score'] = {
-            'precision': bert_score_precision,
-            'recall': bert_score_recall,
-            'f1': bert_score_f1,
-        }
+        if bert_scorer is not None:
+            outputs['bert_score'] = utils.compute_bert_score(
+                bert_scorer,
+                cands=predictions,
+                refs=references,
+            )
+            print(
+                f'BERTScore: precision = {outputs["bert_score"]["precision"]:0.3f}, '
+                f'recall = {outputs["bert_score"]["recall"]:0.3f}, '
+                f'F1 = {outputs["bert_score"]["f1"]:0.3f}'
+            )
+        if bert_scorer_unscaled is not None:
+            outputs['bert_score_unscaled'] = utils.compute_bert_score(
+                bert_scorer_unscaled,
+                cands=predictions,
+                refs=references,
+            )
+            print(
+                f'BERTScore (unscaled): precision = {outputs["bert_score_unscaled"]["precision"]:0.3f}, '
+                f'recall = {outputs["bert_score_unscaled"]["recall"]:0.3f}, '
+                f'F1 = {outputs["bert_score_unscaled"]["f1"]:0.3f}'
+            )
 
     return outputs
 
