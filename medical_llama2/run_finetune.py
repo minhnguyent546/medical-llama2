@@ -17,7 +17,7 @@ from torch.utils.data import DataLoader
 
 import datasets
 from transformers import (
-    AutoModelForCausalLM,
+    LlamaForCausalLM,
     AutoTokenizer,
     BitsAndBytesConfig,
     DataCollatorForSeq2Seq,
@@ -166,11 +166,10 @@ def train_model(args: argparse.Namespace) -> None:
         bnb_4bit_compute_dtype=args.bnb_4bit_compute_dtype,
         bnb_4bit_quant_storage=args.bnb_4bit_quant_storage,
     )
-    model = AutoModelForCausalLM.from_pretrained(
+    model = LlamaForCausalLM.from_pretrained(
         args.model_checkpoint,
         device_map=device,
         quantization_config=(bnb_config if device.type == 'cuda' else None),
-        trust_remote_code=True,
         torch_dtype=args.model_torch_dtype,
     )
     model.config.use_cache = args.use_cache
@@ -270,16 +269,21 @@ def train_model(args: argparse.Namespace) -> None:
             scaler.scale(loss).backward()
 
             if (batch_idx + 1) % args.gradient_accum_step == 0:
+                wandb_accum_logs.append({})
                 if args.max_grad_norm > 0:
                     scaler.unscale_(optimizer)
-                    nn.utils.clip_grad_norm_(model.parameters(), max_norm=args.max_grad_norm)
+                    grad_norm = nn.utils.clip_grad_norm_(model.parameters(), max_norm=args.max_grad_norm)
+                    wandb_accum_logs[-1].update({
+                        'grad_norm': grad_norm,
+                        'step': global_step,
+                    })
 
                 scaler.step(optimizer)
                 scaler.update()
                 optimizer.zero_grad()
 
                 # TODO: handle the case when wandb is disabled
-                wandb_accum_logs.append({
+                wandb_accum_logs[-1].update({
                     f'learning_rate/group_{group_id}': group_lr
                     for group_id, group_lr in enumerate(lr_scheduler.get_last_lr())
                 })
