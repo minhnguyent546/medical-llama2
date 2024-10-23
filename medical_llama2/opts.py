@@ -251,7 +251,7 @@ def _add_common_training_opts(parser: argparse.ArgumentParser) -> None:
         default=32,
     )
     group.add_argument(
-        '--gradient_accum_step',
+        '--gradient_accum_steps',
         type=int,
         help='Gradient accumulation step',
         default=1,

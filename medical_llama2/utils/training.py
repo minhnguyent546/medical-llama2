@@ -198,3 +198,18 @@ def get_mp_dtype(mixed_precision: str, device: torch.device, verbose: bool = Tru
                 print('bfloat16 is not supported on your hardware, fallback to float16')
 
     return mp_dtype
+
+def get_batch_samples(data_iterator, num_batches) -> tuple[list[Any], int | None]:
+    batch_samples = []
+    num_items_in_batch = None
+    for _ in range(num_batches):
+        try:
+            batch_samples.append(next(data_iterator))
+        except StopIteration:
+            break
+    if batch_samples and 'labels' in batch_samples[0]:
+        num_items_in_batch = sum(
+            torch.count_nonzero(batch_sample['labels'] != -100).item()
+            for batch_sample in batch_samples
+        )
+    return batch_samples, num_items_in_batch
