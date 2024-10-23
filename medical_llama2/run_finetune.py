@@ -375,10 +375,10 @@ def train_model(args: argparse.Namespace) -> None:
             })
             batch_loss = 0.0
             train_progressbar.update()
+            global_step += 1
 
             if is_last_iteration:
                 break
-            global_step += 1
 
 def eval_model(
     model,
