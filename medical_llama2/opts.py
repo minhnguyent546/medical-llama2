@@ -336,6 +336,21 @@ def _add_common_training_opts(parser: argparse.ArgumentParser) -> None:
         action='store_true',
         help='Whether to use gradient checkpointing (to save memory at the expense of slower backward pass)',
     )
+    group.add_argument(
+        '--push_to_hub',
+        action='store_true',
+        help='Push to HuggingFace\'s hub',
+    )
+    group.add_argument(
+        '--repo_id',
+        type=str,
+        help='Name of the repository to push the model to',
+    )
+    group.add_argument(
+        '--commit_message',
+        type=str,
+        help='Message to commit while pushing. Leave None to use the default message',
+    )
 
 def _add_generation_opts(parser: argparse.ArgumentParser) -> None:
     group = parser.add_argument_group('Generation')

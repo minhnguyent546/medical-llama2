@@ -381,6 +381,9 @@ def train_model(args: argparse.Namespace) -> None:
             if is_last_iteration:
                 break
 
+    if args.push_to_hub:
+        unwrapped_model.push_to_hub(args.repo_id, commit_message=args.commit_message)
+
 def eval_model(
     model,
     device: torch.device,
