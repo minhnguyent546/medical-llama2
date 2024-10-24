@@ -53,11 +53,11 @@ def train_model(args: argparse.Namespace) -> None:
         raise ValueError('eval_batch_size must be divisible by world_size')
     per_device_train_batch_size = args.train_batch_size // args.world_size
     per_device_eval_batch_size = args.eval_batch_size // args.world_size
-    effective_batch_size = per_device_train_batch_size * args.world_size * args.gradient_accum_step
+    effective_batch_size = per_device_train_batch_size * args.world_size * args.gradient_accum_steps
     utils.master_print(
         f'Effective batch size: {effective_batch_size} '
         f'(micro_batch_size={per_device_train_batch_size}, '
-        f'gradient_accum_step={args.gradient_accum_step}, '
+        f'gradient_accum_steps={args.gradient_accum_steps}, '
         f'num_devices={args.world_size})'
     )
 
@@ -217,157 +217,168 @@ def train_model(args: argparse.Namespace) -> None:
     if args.ddp_enabled:
         model = DDP(model, device_ids=[args.local_rank], output_device=args.local_rank)
 
-    global_step = 0
-    batch_loss = 0.0
-    wandb_accum_logs: list[dict[str, Any]] = []
-    running_loss = AverageMeter('running_loss', device=device)
-
     utils.master_print(
         f'Total training steps: {args.train_steps} '
         f'(roughly {args.train_steps * args.gradient_accum_step / len(train_data_loader):0.2f} epoch(s))'
     )
-    if args.ddp_enabled:
-        train_progressbar = tqdm(
-            range(args.train_steps),
-            desc=f'GPU{args.rank} - Training model',
-            disable=args.local_rank != 0,
-            ncols=120,
-        )
-    else:
-        train_progressbar = tqdm(
-            range(args.train_steps),
-            desc='Training model',
-            ncols=120,
-        )
+
+    train_progressbar_desc = f'GPU{args.rank} - Training' if args.ddp_enabled else 'Training'
+    train_progressbar = tqdm(
+        range(args.train_steps),
+        desc=train_progressbar_desc,
+        disable=args.local_rank != 0,
+        ncols=120,
+    )
 
     # set model in training mode
     model.train()
     optimizer.zero_grad()
 
+    global_step = 0
+    batch_loss = 0.0
+    wandb_accum_logs: list[dict[str, Any]] = []
+    running_loss = AverageMeter('running_loss', device=device)
+
+    train_data_iterator = iter(train_data_loader)
     while global_step < args.train_steps:
-        for batch_idx, batch in enumerate(train_data_loader):
-            input_ids = batch['input_ids'].to(device)
-            attention_mask = batch['attention_mask'].to(device)
-            labels = batch['labels'].to(device)
-            if args.ddp_enabled:
-                # we only sync gradients at the last step of gradient accumulation
-                # we can use the below trick or model.no_sync context manager (see: https://github.com/pytorch/pytorch/blob/main/torch/nn/parallel/distributed.py#L1404)
-                model.require_backward_grad_sync = (batch_idx + 1) % args.gradient_accum_step == 0
+        total_num_samples = len(train_data_loader)
+        last_iter_num_batches = total_num_samples % args.gradient_accum_steps
+        if last_iter_num_batches == 0:
+            last_iter_num_batches = args.gradient_accum_steps
+        total_updates = (total_num_samples + args.gradient_accum_steps - 1) // args.gradient_accum_steps
 
-            with autocast_context:
-                outputs = model(input_ids=input_ids, attention_mask=attention_mask)
-                loss = utils.fixed_causal_lm_loss(outputs.logits, labels, tokenizer.vocab_size)
+        for update_step in range(total_updates):
+            is_last_iteration = (global_step + 1 >= args.train_steps)
 
-            if args.gradient_accum_step > 1:
-                loss /= args.gradient_accum_step
-            batch_loss += loss.detach()
+            num_batches = args.gradient_accum_steps if update_step < total_updates - 1 else last_iter_num_batches
+            batches, num_items_in_batch = utils.get_batch_samples(train_data_iterator, num_batches)
+            num_batches = len(batches)
+            for batch_idx, batch in enumerate(batches):
+                input_ids = batch['input_ids'].to(device)
+                attention_mask = batch['attention_mask'].to(device)
+                labels = batch['labels'].to(device)
 
-            scaler.scale(loss).backward()
+                if args.ddp_enabled:
+                    # only sync gradients at the last iteration of batches
+                    # we can use the below trick or model.no_sync context manager (see: https://github.com/pytorch/pytorch/blob/main/torch/nn/parallel/distributed.py#L1404)
+                    model.require_backward_grad_sync = (batch_idx + 1 == num_batches)
 
-            if (batch_idx + 1) % args.gradient_accum_step == 0:
-                wandb_accum_logs.append({})
-                if args.max_grad_norm > 0:
-                    scaler.unscale_(optimizer)
-                    grad_norm = nn.utils.clip_grad_norm_(model.parameters(), max_norm=args.max_grad_norm)
-                    wandb_accum_logs[-1].update({
-                        'grad_norm': grad_norm,
-                        'step': global_step,
-                    })
+                with autocast_context:
+                    outputs = model(input_ids=input_ids, attention_mask=attention_mask)
+                    loss = utils.fixed_causal_lm_loss(
+                        outputs.logits,
+                        labels,
+                        tokenizer.vocab_size,
+                        num_items_in_batch=num_items_in_batch,
+                    )
 
-                scaler.step(optimizer)
-                scaler.update()
-                optimizer.zero_grad()
+                scaler.scale(loss).backward()
+                batch_loss += loss.detach()
 
-                # TODO: handle the case when wandb is disabled
+            wandb_accum_logs.append({})
+            if args.max_grad_norm > 0:
+                scaler.unscale_(optimizer)
+                grad_norm = nn.utils.clip_grad_norm_(model.parameters(), max_norm=args.max_grad_norm)
                 wandb_accum_logs[-1].update({
-                    f'learning_rate/group_{group_id}': group_lr
-                    for group_id, group_lr in enumerate(lr_scheduler.get_last_lr())
-                })
-                wandb_accum_logs[-1].update({
-                    'loss/batch_loss': batch_loss,
+                    'grad_norm': grad_norm,
                     'step': global_step,
                 })
 
-                lr_scheduler.step()
-                running_loss.update(batch_loss)
+            scaler.step(optimizer)
+            scaler.update()
+            optimizer.zero_grad()
 
-                if args.valid_interval is not None and (global_step + 1) % args.valid_interval == 0:
-                    if args.ddp_enabled:
-                        running_loss.reduce(dst=args.master_rank)
-                    valid_results = eval_model(
-                        model=unwrapped_model,
-                        device=device,
-                        tokenizer=tokenizer,
-                        eval_data_loader=validation_data_loader,
-                        validation_steps=args.valid_steps,
-                        args=args,
-                        autocast_context=autocast_context,
-                    )
-                    wandb_accum_logs[-1].update({
-                        'loss/train': running_loss.average,
-                        'loss/valid': valid_results['loss'],
-                    })
-                    running_loss.reset()
+            # TODO: handle the case when wandb is disabled
+            wandb_accum_logs[-1].update({
+                f'learning_rate/group_{group_id}': group_lr
+                for group_id, group_lr in enumerate(lr_scheduler.get_last_lr())
+            })
+            wandb_accum_logs[-1].update({
+                'loss/batch_loss': batch_loss,
+                'step': global_step,
+            })
 
-                if args.generation_interval is not None and (global_step + 1) % args.generation_interval == 0:
-                    gen_results = eval_generation(
-                        model=unwrapped_model,
-                        device=device,
-                        dataset=validation_dataset.dataset,
-                        tokenizer=tokenizer,
-                        generation_steps=args.generation_steps,
-                        args=args,
-                    )
-                    for bs_key in ('bert_score', 'bert_score_unscaled'):
-                        if bs_key in gen_results:
-                            wandb_accum_logs[-1].update({
-                                f'{bs_key}/precision': gen_results[bs_key]['precision'],
-                                f'{bs_key}/recall': gen_results[bs_key]['recall'],
-                                f'{bs_key}/f1': gen_results[bs_key]['f1'],
-                            })
+            lr_scheduler.step()
+            running_loss.update(batch_loss)
 
-                if (
-                    len(wandb_accum_logs) >= args.wandb_logging_interval or
-                    (len(wandb_accum_logs) > 0 and batch_idx + 1 >= len(train_data_loader))
-                ):
-                    batch_loss_values = torch.tensor(
-                        [loss['loss/batch_loss'] for loss in wandb_accum_logs],
-                        dtype=torch.float32,
-                        device=device,
-                    )
-                    if args.ddp_enabled:
-                        dist.all_reduce(batch_loss_values, op=dist.ReduceOp.AVG)
-                        batch_loss_values = batch_loss_values.tolist()
-                    for idx in range(len(wandb_accum_logs)):
-                        wandb_accum_logs[idx]['loss/batch_loss'] = batch_loss_values[idx]
-                    if wandb_run is not None:
-                        for log_idx in range(len(wandb_accum_logs)):
-                            wandb_run.log(wandb_accum_logs[log_idx])
-                    wandb_accum_logs = []
-                    if args.ddp_enabled:
-                        dist.barrier()
-
-                if (global_step + 1) % args.save_interval == 0:
-                    if args.is_master:
-                        utils.save_model(
-                            args=args,
-                            model=unwrapped_model,
-                            optimizer=optimizer,
-                            lr_scheduler=lr_scheduler,
-                            global_step=global_step + 1,
-                            scaler=scaler,
-                        )
-                    if args.ddp_enabled:
-                        dist.barrier()
-
-                train_progressbar.set_postfix({
-                    'loss': f'{batch_loss:0.3f}',
+            if args.valid_interval is not None and (global_step + 1) % args.valid_interval == 0:
+                if args.ddp_enabled:
+                    running_loss.reduce(dst=args.master_rank)
+                valid_results = eval_model(
+                    model=unwrapped_model,
+                    device=device,
+                    tokenizer=tokenizer,
+                    eval_data_loader=validation_data_loader,
+                    validation_steps=args.valid_steps,
+                    args=args,
+                    autocast_context=autocast_context,
+                )
+                wandb_accum_logs[-1].update({
+                    'loss/train': running_loss.average,
+                    'loss/valid': valid_results['loss'],
                 })
-                batch_loss = 0.0
-                global_step += 1
-                train_progressbar.update()
-                if global_step >= args.train_steps:
-                    break
+                running_loss.reset()
+
+            if args.generation_interval is not None and (global_step + 1) % args.generation_interval == 0:
+                gen_results = eval_generation(
+                    model=unwrapped_model,
+                    device=device,
+                    dataset=validation_dataset.dataset,
+                    tokenizer=tokenizer,
+                    generation_steps=args.generation_steps,
+                    args=args,
+                )
+                for bs_key in ('bert_score', 'bert_score_unscaled'):
+                    if bs_key in gen_results:
+                        wandb_accum_logs[-1].update({
+                            f'{bs_key}/precision': gen_results[bs_key]['precision'],
+                            f'{bs_key}/recall': gen_results[bs_key]['recall'],
+                            f'{bs_key}/f1': gen_results[bs_key]['f1'],
+                        })
+
+            if (
+                len(wandb_accum_logs) >= args.wandb_logging_interval or
+                (len(wandb_accum_logs) > 0 and is_last_iteration)
+            ):
+                batch_loss_values = torch.tensor(
+                    [loss['loss/batch_loss'] for loss in wandb_accum_logs],
+                    dtype=torch.float32,
+                    device=device,
+                )
+                if args.ddp_enabled:
+                    dist.all_reduce(batch_loss_values, op=dist.ReduceOp.AVG)
+                    batch_loss_values = batch_loss_values.tolist()
+                for idx in range(len(wandb_accum_logs)):
+                    wandb_accum_logs[idx]['loss/batch_loss'] = batch_loss_values[idx]
+                if wandb_run is not None:
+                    for log_idx in range(len(wandb_accum_logs)):
+                        wandb_run.log(wandb_accum_logs[log_idx])
+                wandb_accum_logs = []
+                if args.ddp_enabled:
+                    dist.barrier()
+
+            if (global_step + 1) % args.save_interval == 0:
+                if args.is_master:
+                    utils.save_model(
+                        args=args,
+                        model=unwrapped_model,
+                        optimizer=optimizer,
+                        lr_scheduler=lr_scheduler,
+                        global_step=global_step + 1,
+                        scaler=scaler,
+                    )
+                if args.ddp_enabled:
+                    dist.barrier()
+
+            train_progressbar.set_postfix({
+                'loss': f'{batch_loss:0.3f}',
+            })
+            batch_loss = 0.0
+            train_progressbar.update()
+            global_step += 1
+
+            if is_last_iteration:
+                break
 
 def eval_model(
     model,
@@ -382,21 +393,14 @@ def eval_model(
     if autocast_context is None:
         autocast_context = nullcontext()
 
-    if args.ddp_enabled:
-        progress_bar = tqdm(
-            range(validation_steps),
-            total=validation_steps,
-            desc=f'GPU{args.rank} - Evaluating model',
-            disable=args.local_rank != 0,
-            ncols=120,
-        )
-    else:
-        progress_bar = tqdm(
-            range(validation_steps),
-            total=validation_steps,
-            desc='Evaluating model',
-            ncols=120,
-        )
+    progress_bar_desc = f'GPU{args.rank} - Evaluating' if args.ddp_enabled else 'Evaluating'
+    progress_bar = tqdm(
+        range(validation_steps),
+        total=validation_steps,
+        desc=progress_bar_desc,
+        disable=args.local_rank != 0,
+        ncols=120,
+    )
 
     # set model in evaluation mode
     is_training = model.training
@@ -415,7 +419,7 @@ def eval_model(
             evaluation_loss.update(loss.detach())
             progress_bar.set_postfix({'loss': f'{loss:0.3f}'})
             progress_bar.update()
-            if (batch_idx + 1) >= validation_steps:
+            if batch_idx + 1 >= validation_steps:
                 break
 
     # set model back to the original mode
