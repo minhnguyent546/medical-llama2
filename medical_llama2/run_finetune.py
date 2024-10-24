@@ -220,7 +220,7 @@ def train_model(args: argparse.Namespace) -> None:
 
     utils.master_print(
         f'Total training steps: {args.train_steps} '
-        f'(roughly {args.train_steps * args.gradient_accum_step / len(train_data_loader):0.2f} epoch(s))'
+        f'(roughly {args.train_steps * args.gradient_accum_steps / len(train_data_loader):0.2f} epoch(s))'
     )
 
     train_progressbar_desc = f'GPU{args.rank} - Training' if args.ddp_enabled else 'Training'
