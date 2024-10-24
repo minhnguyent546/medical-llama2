@@ -14,4 +14,5 @@ LLAMA_SYSTEM_PROMPT = '''You are a helpful, respectful, and honest AI Medical As
 
 If you don\'t know the answer to a specific medical inquiry, advise seeking professional help from doctors instead of sharing false information.'''
 
-ALPACA_SYSTEM_PROMPT = 'Below is an instruction that describes a task. Write a response that appropriately completes the request.'
+ALPACA_SYSTEM_PROMPT = 'Below is an instruction that describes a task, paired with an input that provides further context. Write a response that appropriately completes the request'
+ALPACA_SYSTEM_PROMPT_NO_INPUT = 'Below is an instruction that describes a task. Write a response that appropriately completes the request.'

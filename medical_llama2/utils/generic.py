@@ -17,6 +17,7 @@ from bert_score import BERTScorer
 
 from medical_llama2.constants import (
     ALPACA_SYSTEM_PROMPT,
+    ALPACA_SYSTEM_PROMPT_NO_INPUT,
     LLAMA_SYSTEM_PROMPT,
 )
 from medical_llama2.constants import SpecialToken
@@ -134,7 +135,7 @@ def generate_alpaca_prompt(
         )
     else:
         prompt = (
-            f'{ALPACA_SYSTEM_PROMPT}\n\n'
+            f'{ALPACA_SYSTEM_PROMPT_NO_INPUT}\n\n'
             f'### Instruction:\n'
             f'{instruction}\n\n'
             f'### Response:\n'
