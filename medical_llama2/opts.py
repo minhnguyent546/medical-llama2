@@ -342,6 +342,11 @@ def _add_common_training_opts(parser: argparse.ArgumentParser) -> None:
         help='Push to HuggingFace\'s hub',
     )
     group.add_argument(
+        '--push_tokenizer',
+        action='store_true',
+        help='Push tokenizer to hub',
+    )
+    group.add_argument(
         '--repo_id',
         type=str,
         help='Name of the repository to push the model to',

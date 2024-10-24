@@ -383,6 +383,8 @@ def train_model(args: argparse.Namespace) -> None:
 
     if args.push_to_hub:
         unwrapped_model.push_to_hub(args.repo_id, commit_message=args.commit_message)
+        if args.push_tokenizer:
+            tokenizer.push_to_hub(args.repo_id)
 
 def eval_model(
     model,
