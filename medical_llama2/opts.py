@@ -234,6 +234,11 @@ def _add_common_training_opts(parser: argparse.ArgumentParser) -> None:
         help='Whether to enable kv-cache',
     )
     group.add_argument(
+        '--use_flash_attn_2',
+        action='store_true',
+        help='Use flash attention 2',
+    )
+    group.add_argument(
         '--train_on_inputs',
         action='store_true',
         help='Whether to train on input tokens, if set to `False` then the system and user part in the prompt will be ignored during loss calculation',

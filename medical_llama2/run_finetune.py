@@ -171,6 +171,7 @@ def train_model(args: argparse.Namespace) -> None:
         device_map=device,
         quantization_config=(bnb_config if device.type == 'cuda' else None),
         torch_dtype=args.model_torch_dtype,
+        use_flash_attention_2=args.use_flash_attn_2,
     )
     model.config.use_cache = args.use_cache
     # setting config.pretraining_tp to a value different than 1 will activate the more accurate
