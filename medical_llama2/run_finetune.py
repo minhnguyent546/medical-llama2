@@ -54,12 +54,6 @@ def train_model(args: argparse.Namespace) -> None:
     per_device_train_batch_size = args.train_batch_size // args.world_size
     per_device_eval_batch_size = args.eval_batch_size // args.world_size
     effective_batch_size = per_device_train_batch_size * args.world_size * args.gradient_accum_steps
-    utils.master_print(
-        f'Effective batch size: {effective_batch_size} '
-        f'(micro_batch_size={per_device_train_batch_size}, '
-        f'gradient_accum_steps={args.gradient_accum_steps}, '
-        f'num_devices={args.world_size})'
-    )
 
     # dataset
     raw_dataset: datasets.DatasetDict = datasets.load_dataset(
@@ -122,29 +116,11 @@ def train_model(args: argparse.Namespace) -> None:
         per_device_train_batch_size=per_device_train_batch_size,
         per_device_eval_batch_size=per_device_eval_batch_size,
     )
-    utils.master_print(
-        f'Dataset: train_size={len(train_data_loader)}, '
-        f'test_size={len(test_data_loader)}, '
-        f'validation_size={len(validation_data_loader)}'
-    )
 
     # training device
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     device = torch.device(device, args.local_rank)
     utils.master_print(f'Using device: {device}')
-
-    # logging with wandb
-    wandb_run = None
-    if args.is_master and args.wandb_logging:
-        wandb_run = wandb.init(
-            project=args.wandb_project,
-            name=args.wandb_name,
-            config=vars(args),
-            tags=args.wandb_tags,
-            notes=args.wandb_notes,
-            id=args.wandb_resume_id,
-            resume='must' if args.wandb_resume_id is not None else None,
-        )
 
     # mixed precision training
     mp_dtype = None  # dtype for mixed-precision
@@ -218,10 +194,47 @@ def train_model(args: argparse.Namespace) -> None:
     if args.ddp_enabled:
         model = DDP(model, device_ids=[args.local_rank], output_device=args.local_rank)
 
+    # logging with wandb
+    wandb_run = None
+    if args.is_master and args.wandb_logging:
+        wandb_run = wandb.init(
+            project=args.wandb_project,
+            name=args.wandb_name,
+            config=vars(args),
+            tags=args.wandb_tags,
+            notes=args.wandb_notes,
+            id=args.wandb_resume_id,
+            resume='must' if args.wandb_resume_id is not None else None,
+        )
+
+    utils.master_print('******** Start training ********')
     utils.master_print(
-        f'Total training steps: {args.train_steps} '
+        f'  Dataset: train_size={len(train_data_loader)}, '
+        f'test_size={len(test_data_loader)}, '
+        f'validation_size={len(validation_data_loader)}'
+    )
+    utils.master_print(
+        f'  Effective batch size: {effective_batch_size} '
+        f'(micro_batch_size={per_device_train_batch_size}, '
+        f'gradient_accum_steps={args.gradient_accum_steps}, '
+        f'num_devices={args.world_size})'
+    )
+    utils.master_print(
+        f'  Total training steps: {args.train_steps} '
         f'(roughly {args.train_steps * args.gradient_accum_steps / len(train_data_loader):0.2f} epoch(s))'
     )
+    if args.valid_interval is not None:
+        utils.master_print(
+            f'  Validation interval: {args.valid_interval}, '
+            f'validation steps: {args.valid_steps}'
+        )
+    if args.generation_interval is not None:
+        utils.master_print(
+            f'  Generation interval: {args.generation_interval}, '
+            f'generation steps: {args.generation_steps}'
+        )
+    if wandb_run is not None:
+        utils.master_print(f'  Wandb logging interval: {args.wandb_logging_interval}')
 
     train_progressbar_desc = f'GPU{args.rank} - Training' if args.ddp_enabled else 'Training'
     train_progressbar = tqdm(
