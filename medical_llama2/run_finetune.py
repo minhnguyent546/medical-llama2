@@ -55,27 +55,15 @@ def train_model(args: argparse.Namespace) -> None:
     raw_dataset = utils.get_datasets(args)
 
     # MedicalDataset
-    train_dataset = DialogueDataset(
-        dataset=raw_dataset['train'], tokenizer=tokenizer,
-        seq_length=args.seq_length, input_field=args.input_field,
-        output_field=args.output_field, instruction_field=args.instruction_field,
-        train_on_inputs=args.train_on_inputs, prompt_template=args.prompt_template,
-        dataset_num_procs=args.dataset_num_procs,
-    )
-    validation_dataset = DialogueDataset(
-        dataset=raw_dataset['validation'], tokenizer=tokenizer,
-        seq_length=args.seq_length, input_field=args.input_field,
-        output_field=args.output_field, instruction_field=args.instruction_field,
-        train_on_inputs=args.train_on_inputs, prompt_template=args.prompt_template,
-        dataset_num_procs=args.dataset_num_procs,
-    )
-    test_dataset = DialogueDataset(
-        dataset=raw_dataset['test'], tokenizer=tokenizer,
-        seq_length=args.seq_length, input_field=args.input_field,
-        output_field=args.output_field, instruction_field=args.instruction_field,
-        train_on_inputs=args.train_on_inputs, prompt_template=args.prompt_template,
-        dataset_num_procs=args.dataset_num_procs,
-    )
+    dialogue_dataset_common_kwargs = {
+        'tokenizer': tokenizer, 'seq_length': args.seq_length,
+        'input_field': args.input_field, 'output_field': args.output_field,
+        'instruction_field': args.instruction_field, 'train_on_inputs': args.train_on_inputs,
+        'prompt_template': args.prompt_template, 'dataset_num_procs': args.dataset_num_procs
+    }
+    train_dataset = DialogueDataset(dataset=raw_dataset['train'], **dialogue_dataset_common_kwargs)
+    validation_dataset = DialogueDataset(dataset=raw_dataset['validation'], **dialogue_dataset_common_kwargs)
+    test_dataset = DialogueDataset(dataset=raw_dataset['test'], **dialogue_dataset_common_kwargs)
     data_collator = DataCollatorForSeq2Seq(
         tokenizer=tokenizer,
         padding=True,
