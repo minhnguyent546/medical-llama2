@@ -8,6 +8,8 @@ from torch.utils.data import DataLoader, DistributedSampler
 
 from peft.optimizers import create_loraplus_optimizer
 
+import datasets
+
 import bitsandbytes as bnb
 
 from medical_llama2.utils import ensure_dir, ensure_num_saved_checkpoints
@@ -119,6 +121,29 @@ def save_model(args, model, optimizer=None, lr_scheduler=None, global_step=None,
 
         if checkpoint_dict:
             torch.save(checkpoint_dict, os.path.join(ck_save_path, 'other_states.pt'))
+
+def get_datasets(args):
+    raw_dataset: datasets.DatasetDict = datasets.load_dataset(
+        path=args.dataset_path,
+        name=args.dataset_name,
+        data_files=args.dataset_data_files,
+        num_proc=args.dataset_num_procs,
+        trust_remote_code=True,
+    )  # pyright: ignore[reportAssignmentType]
+    raw_dataset = raw_dataset['train'].shuffle(seed=args.seed).train_test_split(
+        test_size=args.test_size,
+        shuffle=True,
+        seed=args.seed,
+    )
+    old_dataset = raw_dataset
+    raw_dataset = old_dataset['train'].shuffle(seed=args.seed).train_test_split(
+        test_size=args.validation_size,
+        shuffle=True,
+        seed=args.seed,
+    )
+    raw_dataset['validation'] = raw_dataset.pop('test')
+    raw_dataset['test'] = old_dataset['test']
+    return raw_dataset
 
 def make_data_loaders(
     args,

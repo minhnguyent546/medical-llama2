@@ -56,26 +56,7 @@ def train_model(args: argparse.Namespace) -> None:
     effective_batch_size = per_device_train_batch_size * args.world_size * args.gradient_accum_steps
 
     # dataset
-    raw_dataset: datasets.DatasetDict = datasets.load_dataset(
-        path=args.dataset_path,
-        name=args.dataset_name,
-        data_files=args.dataset_data_files,
-        num_proc=args.dataset_num_procs,
-        trust_remote_code=True,
-    )  # pyright: ignore[reportAssignmentType]
-    raw_dataset = raw_dataset['train'].shuffle(seed=args.seed).train_test_split(
-        test_size=args.test_size,
-        shuffle=True,
-        seed=args.seed,
-    )
-    old_dataset = raw_dataset
-    raw_dataset = old_dataset['train'].shuffle(seed=args.seed).train_test_split(
-        test_size=args.validation_size,
-        shuffle=True,
-        seed=args.seed,
-    )
-    raw_dataset['validation'] = raw_dataset.pop('test')
-    raw_dataset['test'] = old_dataset['test']
+    raw_dataset = utils.get_datasets(args)
 
     # MedicalDataset
     train_dataset = DialogueDataset(
@@ -235,6 +216,7 @@ def train_model(args: argparse.Namespace) -> None:
         )
     if wandb_run is not None:
         utils.master_print(f'  Wandb logging interval: {args.wandb_logging_interval}')
+    utils.master_print(f'  Push to hub: {args.push_to_hub}')
 
     train_progressbar_desc = f'GPU{args.rank} - Training' if args.ddp_enabled else 'Training'
     train_progressbar = tqdm(
