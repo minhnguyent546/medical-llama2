@@ -287,7 +287,7 @@ def _add_common_training_opts(parser: argparse.ArgumentParser) -> None:
     group.add_argument(
         '--valid_steps',
         type=int,
-        help='Number of validation steps',
+        help='Number of validation steps (leave None to validate on entire dataset)',
         default=50,
     )
     group.add_argument(
@@ -298,7 +298,7 @@ def _add_common_training_opts(parser: argparse.ArgumentParser) -> None:
     group.add_argument(
         '--generation_steps',
         type=int,
-        help='Number of generation steps',
+        help='Number of generation steps (leave None to run on entire dataset)',
         default=25,
     )
     group.add_argument(

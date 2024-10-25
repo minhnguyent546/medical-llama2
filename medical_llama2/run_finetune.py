@@ -188,6 +188,12 @@ def train_model(args: argparse.Namespace) -> None:
             resume='must' if args.wandb_resume_id is not None else None,
         )
 
+    valid_steps = args.valid_steps
+    generation_steps = args.generation_steps
+    if valid_steps is None:
+        valid_steps = len(validation_data_loader)
+    if generation_steps is None:
+        generation_steps = len(validation_dataset.dataset)
     utils.master_print('******** Start training ********')
     utils.master_print(
         f'  Dataset: train_size={len(train_data_loader)}, '
@@ -207,12 +213,12 @@ def train_model(args: argparse.Namespace) -> None:
     if args.valid_interval is not None:
         utils.master_print(
             f'  Validation interval: {args.valid_interval}, '
-            f'validation steps: {args.valid_steps}'
+            f'validation steps: {valid_steps}'
         )
     if args.generation_interval is not None:
         utils.master_print(
             f'  Generation interval: {args.generation_interval}, '
-            f'generation steps: {args.generation_steps}'
+            f'generation steps: {generation_steps}'
         )
     if wandb_run is not None:
         utils.master_print(f'  Wandb logging interval: {args.wandb_logging_interval}')
@@ -305,7 +311,7 @@ def train_model(args: argparse.Namespace) -> None:
                     device=device,
                     tokenizer=tokenizer,
                     eval_data_loader=validation_data_loader,
-                    validation_steps=args.valid_steps,
+                    validation_steps=valid_steps,
                     args=args,
                     autocast_context=autocast_context,
                 )
@@ -321,7 +327,7 @@ def train_model(args: argparse.Namespace) -> None:
                     device=device,
                     dataset=validation_dataset.dataset,
                     tokenizer=tokenizer,
-                    generation_steps=args.generation_steps,
+                    generation_steps=generation_steps,
                     args=args,
                 )
                 for bs_key in ('bert_score', 'bert_score_unscaled'):
