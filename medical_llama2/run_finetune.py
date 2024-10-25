@@ -1,4 +1,4 @@
-"""Fine-tuning LLaMA 2 model on medical data."""
+"""Fine-tuning LLaMA 2 model on dialogue dataset (e.g. alpaca dataset, medical dataset, etc)"""
 
 import argparse
 import wandb
@@ -6,21 +6,17 @@ from contextlib import nullcontext
 from tqdm.autonotebook import tqdm
 from typing import Any
 
-import bert_score
-
 import torch
 import torch.amp
 import torch.distributed as dist
 import torch.nn as nn
 from torch.nn.parallel import DistributedDataParallel as DDP
-from torch.utils.data import DataLoader
 
-import datasets
 from transformers import (
-    LlamaForCausalLM,
     AutoTokenizer,
     BitsAndBytesConfig,
     DataCollatorForSeq2Seq,
+    LlamaForCausalLM,
     LlamaModel,
     LlamaTokenizer,
 )
@@ -306,7 +302,7 @@ def train_model(args: argparse.Namespace) -> None:
             if args.valid_interval is not None and (global_step + 1) % args.valid_interval == 0:
                 if args.ddp_enabled:
                     running_loss.reduce(dst=args.master_rank)
-                valid_results = eval_model(
+                valid_results = utils.eval_model(
                     model=unwrapped_model,
                     device=device,
                     tokenizer=tokenizer,
@@ -322,7 +318,7 @@ def train_model(args: argparse.Namespace) -> None:
                 running_loss.reset()
 
             if args.generation_interval is not None and (global_step + 1) % args.generation_interval == 0:
-                gen_results = eval_generation(
+                gen_results = utils.eval_generation(
                     model=unwrapped_model,
                     device=device,
                     dataset=validation_dataset.dataset,
@@ -386,176 +382,6 @@ def train_model(args: argparse.Namespace) -> None:
         unwrapped_model.push_to_hub(args.repo_id, commit_message=args.commit_message)
         if args.push_tokenizer:
             tokenizer.push_to_hub(args.repo_id)
-
-def eval_model(
-    model,
-    device: torch.device,
-    tokenizer: LlamaTokenizer,
-    eval_data_loader: DataLoader,
-    validation_steps: int,
-    args: argparse.Namespace,
-    autocast_context=None,
-) -> dict[str, float]:
-    evaluation_loss = AverageMeter('evaluation_loss', device=device)
-    if autocast_context is None:
-        autocast_context = nullcontext()
-
-    progress_bar_desc = f'GPU{args.rank} - Evaluating' if args.ddp_enabled else 'Evaluating'
-    progress_bar = tqdm(
-        range(validation_steps),
-        total=validation_steps,
-        desc=progress_bar_desc,
-        disable=args.local_rank != 0,
-        ncols=120,
-    )
-
-    # set model in evaluation mode
-    is_training = model.training
-    model.eval()
-
-    with torch.no_grad():
-        for batch_idx, batch in enumerate(eval_data_loader):
-            input_ids = batch['input_ids'].to(device)
-            attention_mask = batch['attention_mask'].to(device)
-            labels = batch['labels'].to(device)
-
-            with autocast_context:
-                outputs = model(input_ids=input_ids, attention_mask=attention_mask)
-                loss = utils.fixed_causal_lm_loss(outputs.logits, labels, tokenizer.vocab_size)
-
-            evaluation_loss.update(loss.detach())
-            progress_bar.set_postfix({'loss': f'{loss:0.3f}'})
-            progress_bar.update()
-            if batch_idx + 1 >= validation_steps:
-                break
-
-    # set model back to the original mode
-    model.train(is_training)
-
-    if args.ddp_enabled:
-        evaluation_loss.reduce(dst=args.master_rank)
-
-    return {
-        'loss': evaluation_loss.average,
-    }
-
-def eval_generation(
-    model,
-    device: torch.device,
-    dataset: datasets.Dataset,
-    tokenizer: LlamaTokenizer,
-    generation_steps: int,
-    args: argparse.Namespace,
-) -> dict[str, Any]:
-    generation_steps = min(generation_steps, len(dataset))
-
-    if args.ddp_enabled:
-        progress_bar = tqdm(
-            range(generation_steps),
-            total=generation_steps,
-            desc=f'GPU{args.rank} - Evaluating generation',
-            disable=args.local_rank != 0,
-            ncols=120,
-        )
-    else:
-        progress_bar = tqdm(
-            range(generation_steps),
-            total=generation_steps,
-            desc='Evaluating generation',
-            ncols=120,
-        )
-
-    bert_scorer = None
-    bert_scorer_unscaled = None
-    if args.is_master:
-        bert_score_kwargs = {
-            'model_type': 'roberta-large',
-            'device': device,
-            'lang': 'en',
-            'use_fast_tokenizer': True,
-        }
-        if args.bert_score_type == 'unscaled' or args.bert_score_type == 'both':
-            bert_scorer_unscaled = bert_score.BERTScorer(**bert_score_kwargs)
-        if args.bert_score_type == 'scaled' or args.bert_score_type == 'both':
-            bert_scorer = bert_score.BERTScorer(
-                **bert_score_kwargs,
-                rescale_with_baseline=True,
-            )
-    predictions: list[str] = []
-    references: list[str] = []
-
-    is_training = model.training
-    model.eval()
-    for idx, item in enumerate(dataset):
-        input_data = item[args.input_field]
-        output_data = item[args.output_field]
-        if args.prompt_template == 'llama2':
-            prompt = utils.generate_llama2_prompt(
-                user_message=item[args.input_field],
-            )
-        else:
-            prompt = utils.generate_alpaca_prompt(
-                instruction=item[args.instruction_field],
-                input=item[args.input_field],
-                response='',
-            )
-        model_inputs = tokenizer([prompt], return_tensors='pt').to(device)
-        output = model.generate(
-            **model_inputs,
-            do_sample=args.do_sample,
-            max_new_tokens=args.max_new_tokens,
-            temperature=args.temperature,
-            top_k=args.top_k,
-            top_p=args.top_p,
-            num_beams=args.num_beams,
-            early_stopping=args.generation_early_stopping,
-            no_repeat_ngram_size=args.no_repeat_ngram_size,
-            num_return_sequences=args.num_return_sequences,
-            repetition_penalty=args.repetition_penalty,
-        )
-        model_response = tokenizer.decode(output[0, len(model_inputs['input_ids'][0]):], skip_special_tokens=True)
-        model_response = model_response.strip()
-        # TODO: calculate scores here (e.g. BERTScore)
-        if args.is_master:
-            if args.instruction_field in item:
-                progress_bar.write(f'>> INST: {item[args.instruction_field]}')
-            progress_bar.write(f'>> INPUT: {input_data}')
-            progress_bar.write(f'>> OUTPUT: {output_data}')
-            progress_bar.write(f'>> MODEL: {model_response}')
-            predictions.append(model_response)
-            references.append(output_data)
-
-        progress_bar.update()
-        if idx + 1 >= generation_steps:
-            break
-
-    model.train(is_training)
-    outputs = {}
-    if args.is_master:
-        if bert_scorer is not None:
-            outputs['bert_score'] = utils.compute_bert_score(
-                bert_scorer,
-                cands=predictions,
-                refs=references,
-            )
-            print(
-                f'BERTScore: precision = {outputs["bert_score"]["precision"]:0.3f}, '
-                f'recall = {outputs["bert_score"]["recall"]:0.3f}, '
-                f'F1 = {outputs["bert_score"]["f1"]:0.3f}'
-            )
-        if bert_scorer_unscaled is not None:
-            outputs['bert_score_unscaled'] = utils.compute_bert_score(
-                bert_scorer_unscaled,
-                cands=predictions,
-                refs=references,
-            )
-            print(
-                f'BERTScore (unscaled): precision = {outputs["bert_score_unscaled"]["precision"]:0.3f}, '
-                f'recall = {outputs["bert_score_unscaled"]["recall"]:0.3f}, '
-                f'F1 = {outputs["bert_score_unscaled"]["f1"]:0.3f}'
-            )
-
-    return outputs
 
 def main():
     parser = argparse.ArgumentParser(

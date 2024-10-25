@@ -21,6 +21,8 @@ from medical_llama2.utils.text_processing import clean_text, normalize_tone
 from medical_llama2.utils.training import (
     CollatorWithPadding,
     cosine_decay,
+    eval_generation,
+    eval_model,
     get_batch_samples,
     get_datasets,
     get_mp_dtype,
