@@ -17,7 +17,7 @@ class AverageMeterBase:
     def __init__(
         self,
         name: str = '',
-        sum: int | float = 0.0,
+        sum: float = 0.0,
         count: int = 0,
         device: torch.device | None = None,
     ) -> None:
@@ -33,7 +33,7 @@ class AverageMeterBase:
         except ZeroDivisionError:
             return 0.0
 
-    def update(self, value: int | float, nums: int = 1) -> None:
+    def update(self, value: float, nums: int = 1) -> None:
         self.sum += value * nums
         self.count += nums
 
@@ -58,8 +58,8 @@ class AverageMeterBase:
         if self.name:
             str_repr += f'name={self.name}, '
         str_repr += (
-            f'average={self.average}, '
-            f'sum={self.sum}, '
+            f'average={self.average:0.3f}, '
+            f'sum={self.sum:0.3f}, '
             f'count={self.count}'
         )
         if self.device is not None:
@@ -79,7 +79,7 @@ class AverageMeter(AverageMeterBase):
     def __init__(
         self,
         name: str = '',
-        sum: int | float = 0.0,
+        sum: float = 0.0,
         count: int = 0,
         device: torch.device | None = None,
     ) -> None:
@@ -119,7 +119,7 @@ class XLAAverageMeter(AverageMeterBase):
     def __init__(
         self,
         name: str = '',
-        sum: int | float = 0.0,
+        sum: float = 0.0,
         count: int = 0,
         device: torch.device | None = None,
     ) -> None:
