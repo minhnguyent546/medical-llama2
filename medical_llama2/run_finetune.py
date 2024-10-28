@@ -125,9 +125,9 @@ def train_model(args: argparse.Namespace) -> None:
     model = prepare_model_for_kbit_training(model, args.use_gradient_checkpointing)
 
     # getting peft model
-    if args.peft_from_checkpoint is not None:
-        utils.master_print(f'Getting peft model from {args.peft_from_checkpoint}')
-        model = PeftModel.from_pretrained(model, args.peft_from_checkpoint, is_trainable=args.do_train)
+    if args.peft_checkpoint is not None:
+        utils.master_print(f'Getting peft model from {args.peft_checkpoint}')
+        model = PeftModel.from_pretrained(model, args.peft_checkpoint, is_trainable=args.do_train)
         # override config in args with the config from the checkpoint
         peft_config = model.peft_config['default']
         keys_to_override = [
