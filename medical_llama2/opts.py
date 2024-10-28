@@ -95,6 +95,11 @@ def _add_model_opts(parser: argparse.ArgumentParser) -> None:
         default='meta-llama/Llama-2-7b-hf',
     )
     group.add_argument(
+        '--peft_from_checkpoint',
+        type=str,
+        help='Getting peft model from this checkpoint if set',
+    )
+    group.add_argument(
         '--tokenizer_checkpoint',
         type=str,
         help='Path to the HuggingFace tokenizer checkpoint being used',

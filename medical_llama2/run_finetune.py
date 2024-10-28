@@ -24,6 +24,7 @@ from transformers import (
 from peft import (
     LoraConfig,
     TaskType,
+    PeftModel,
     get_peft_model,
     prepare_model_for_kbit_training,
 )
@@ -121,17 +122,24 @@ def train_model(args: argparse.Namespace) -> None:
     # setting config.pretraining_tp to a value different than 1 will activate the more accurate
     # but slower computation of the linear layers, which should better match the original logits
     model.config.pretraining_tp = 1
-    peft_config = LoraConfig(
-        r=args.lora_r,
-        lora_alpha=args.lora_alpha,
-        lora_dropout=args.lora_dropout,
-        target_modules=args.lora_target_modules,
-        modules_to_save=args.lora_modules_to_save,
-        bias='none',
-        task_type=TaskType.CAUSAL_LM,
-    )
     model = prepare_model_for_kbit_training(model, args.use_gradient_checkpointing)
-    model = get_peft_model(model, peft_config)
+
+    # getting peft model
+    if args.peft_from_checkpoint is not None:
+        utils.master_print(f'Getting peft model from {args.peft_from_checkpoint}')
+        model = PeftModel.from_pretrained(model, args.peft_from_checkpoint)
+    else:
+        peft_config = LoraConfig(
+            r=args.lora_r,
+            lora_alpha=args.lora_alpha,
+            lora_dropout=args.lora_dropout,
+            target_modules=args.lora_target_modules,
+            modules_to_save=args.lora_modules_to_save,
+            bias='none',
+            task_type=TaskType.CAUSAL_LM,
+        )
+        model = get_peft_model(model, peft_config)
+
     if args.is_master:
         model.print_trainable_parameters()
 

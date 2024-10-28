@@ -121,7 +121,7 @@ def save_model(args, model, optimizer=None, lr_scheduler=None, global_step=None,
         limit=args.saved_checkpoint_limit,
     )
     ck_save_path = os.path.join(args.checkpoints_dir, f'medical_llama2-{global_step}')
-    model.save_pretrained(os.path.join(ck_save_path, 'hf_model'))
+    model.save_pretrained(os.path.join(ck_save_path, 'peft_model'))
     if not args.save_model_only:
         checkpoint_dict = {}
         if optimizer is not None:
