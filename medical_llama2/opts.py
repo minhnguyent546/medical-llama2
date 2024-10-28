@@ -151,6 +151,23 @@ def _add_wandb_opts(parser: argparse.ArgumentParser) -> None:
 def _add_common_training_opts(parser: argparse.ArgumentParser) -> None:
     group = parser.add_argument_group('Training')
 
+    # do training and testing
+    group.add_argument(
+        '--do_train',
+        action='store_true',
+        help='Do training the model',
+    )
+    group.add_argument(
+        '--do_test',
+        action='store_true',
+        help='Do testing the model',
+    )
+    group.add_argument(
+        '--do_test_generation',
+        action='store_true',
+        help='Do testing generation capacity of the model',
+    )
+
     # prompt template
     group.add_argument(
         '--prompt_template',
@@ -274,6 +291,17 @@ def _add_common_training_opts(parser: argparse.ArgumentParser) -> None:
         default='float32',
     )
     group.add_argument(
+        '--max_grad_norm',
+        type=float,
+        help='Maximum gradient norm for gradient clipping (0.0 means no clipping)',
+        default=0.0,
+    )
+    group.add_argument(
+        '--use_gradient_checkpointing',
+        action='store_true',
+        help='Whether to use gradient checkpointing (to save memory at the expense of slower backward pass)',
+    )
+    group.add_argument(
         '--train_steps',
         type=int,
         help='Number of training steps',
@@ -287,7 +315,15 @@ def _add_common_training_opts(parser: argparse.ArgumentParser) -> None:
     group.add_argument(
         '--valid_steps',
         type=int,
-        help='Number of validation steps (leave None to validate on entire dataset)',
+        help='Number of validation steps (leave None to validate on the entire dataset)',
+        default=50,
+    )
+
+    # testing and generating
+    group.add_argument(
+        '--test_steps',
+        type=int,
+        help='Number of testing steps (used for testing the model, leave None to test on the entire dataset)',
         default=50,
     )
     group.add_argument(
@@ -298,8 +334,13 @@ def _add_common_training_opts(parser: argparse.ArgumentParser) -> None:
     group.add_argument(
         '--generation_steps',
         type=int,
-        help='Number of generation steps (leave None to run on entire dataset)',
+        help='Number of generation steps (leave None to run on the entire dataset)',
         default=25,
+    )
+    group.add_argument(
+        '--generation_log_interval',
+        type=int,
+        help='Interval between printing model generations (leave None to disable printing)',
     )
     group.add_argument(
         '--bert_score_type',
@@ -308,6 +349,8 @@ def _add_common_training_opts(parser: argparse.ArgumentParser) -> None:
         choices=['unscaled', 'scaled', 'both'],
         default='scaled',
     )
+
+    # saving the model
     group.add_argument(
         '--save_interval',
         type=int,
@@ -325,17 +368,8 @@ def _add_common_training_opts(parser: argparse.ArgumentParser) -> None:
         action='store_true',
         help='Whether to save model state dict only and leave optimizer, scheduler, scaler, ....',
     )
-    group.add_argument(
-        '--max_grad_norm',
-        type=float,
-        help='Maximum gradient norm for gradient clipping (0.0 means no clipping)',
-        default=0.0,
-    )
-    group.add_argument(
-        '--use_gradient_checkpointing',
-        action='store_true',
-        help='Whether to use gradient checkpointing (to save memory at the expense of slower backward pass)',
-    )
+
+    # pushing to hub
     group.add_argument(
         '--push_to_hub',
         action='store_true',

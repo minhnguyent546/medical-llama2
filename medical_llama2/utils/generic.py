@@ -98,6 +98,7 @@ def tensor_to_object(tensor, tensor_size, group=None):
     return Unpickler(io.BytesIO(buf)).load()
 
 def get_perplexity(loss: float) -> float:
+    """Calculating perplexity, i.e. e^{loss}"""
     return math.exp(loss)
 
 def generate_llama2_prompt(

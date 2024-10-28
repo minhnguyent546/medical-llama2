@@ -36,6 +36,9 @@ from medical_llama2.meters import AverageMeter
 
 def train_model(args: argparse.Namespace) -> None:
     utils.set_seed(args.seed)
+    if not (args.do_train or args.do_test or args.do_test_generation):
+        utils.master_print('Warning: please specify at least one of --do_train, --do_test, or --do_test_generation. Exiting...')
+        return
 
     # tokenizer
     tokenizer: LlamaTokenizer = AutoTokenizer.from_pretrained(args.tokenizer_checkpoint)
@@ -61,9 +64,9 @@ def train_model(args: argparse.Namespace) -> None:
         'instruction_field': args.instruction_field, 'train_on_inputs': args.train_on_inputs,
         'prompt_template': args.prompt_template, 'dataset_num_procs': args.dataset_num_procs
     }
-    train_dataset = DialogueDataset(dataset=raw_dataset['train'], **dialogue_dataset_common_kwargs)
-    validation_dataset = DialogueDataset(dataset=raw_dataset['validation'], **dialogue_dataset_common_kwargs)
-    test_dataset = DialogueDataset(dataset=raw_dataset['test'], **dialogue_dataset_common_kwargs)
+    train_dataset = DialogueDataset(dataset=raw_dataset['train'], **dialogue_dataset_common_kwargs)  # pyright: ignore[reportArgumentType]
+    validation_dataset = DialogueDataset(dataset=raw_dataset['validation'], **dialogue_dataset_common_kwargs)  # pyright: ignore[reportArgumentType]
+    test_dataset = DialogueDataset(dataset=raw_dataset['test'], **dialogue_dataset_common_kwargs)  # pyright: ignore[reportArgumentType]
     data_collator = DataCollatorForSeq2Seq(
         tokenizer=tokenizer,
         padding=True,
@@ -173,12 +176,15 @@ def train_model(args: argparse.Namespace) -> None:
         )
 
     valid_steps = args.valid_steps
+    test_steps = args.test_steps
     generation_steps = args.generation_steps
     if valid_steps is None:
         valid_steps = len(validation_data_loader)
+    if test_steps is None:
+        test_steps = len(test_data_loader)
     if generation_steps is None:
         generation_steps = len(validation_dataset.dataset)
-    utils.master_print('******** Start training ********')
+    utils.master_print('******** General information ********')
     utils.master_print(
         f'  Dataset: train_size={len(train_data_loader)}, '
         f'test_size={len(test_data_loader)}, '
@@ -202,36 +208,43 @@ def train_model(args: argparse.Namespace) -> None:
     if args.generation_interval is not None:
         utils.master_print(
             f'  Generation interval: {args.generation_interval}, '
-            f'generation steps: {generation_steps}'
+            f'generation steps: {generation_steps}, ',
+            f'log interval: {args.generation_log_interval}'
         )
     if wandb_run is not None:
         utils.master_print(f'  Wandb logging interval: {args.wandb_logging_interval}')
     utils.master_print(f'  Push to hub: {args.push_to_hub}')
+    utils.master_print(f'  Do training: {args.do_train}')
+    utils.master_print(f'  Do testing: {args.do_test}')
 
-    train_progressbar_desc = f'GPU{args.rank} - Training' if args.ddp_enabled else 'Training'
-    train_progressbar = tqdm(
-        range(args.train_steps),
-        desc=train_progressbar_desc,
-        disable=args.local_rank != 0,
-        ncols=120,
-    )
+    if args.do_train:
+        train_progressbar_desc = f'GPU{args.rank} - Training' if args.ddp_enabled else 'Training'
+        train_progressbar = tqdm(
+            range(args.train_steps),
+            desc=train_progressbar_desc,
+            disable=args.local_rank != 0,
+            ncols=120,
+        )
 
-    # set model in training mode
-    model.train()
-    optimizer.zero_grad()
+        # set model in training mode
+        model.train()
+        optimizer.zero_grad()
 
-    global_step = 0
-    batch_loss = 0.0
     wandb_accum_logs: list[dict[str, Any]] = []
     running_loss = AverageMeter('running_loss', device=device)
+    global_step = 0
 
-    train_data_iterator = iter(train_data_loader)
-    while global_step < args.train_steps:
+    # function definitions for training, testing model
+    def do_train_single_epoch():
+        nonlocal global_step, wandb_accum_logs, train_progressbar
+
         total_num_samples = len(train_data_loader)
         last_iter_num_batches = total_num_samples % args.gradient_accum_steps
         if last_iter_num_batches == 0:
             last_iter_num_batches = args.gradient_accum_steps
         total_updates = (total_num_samples + args.gradient_accum_steps - 1) // args.gradient_accum_steps
+
+        batch_loss = 0.0
 
         for update_step in range(total_updates):
             is_last_iteration = (global_step + 1 >= args.train_steps)
@@ -247,7 +260,7 @@ def train_model(args: argparse.Namespace) -> None:
                 if args.ddp_enabled:
                     # only sync gradients at the last iteration of batches
                     # we can use the below trick or model.no_sync context manager (see: https://github.com/pytorch/pytorch/blob/main/torch/nn/parallel/distributed.py#L1404)
-                    model.require_backward_grad_sync = (batch_idx + 1 == num_batches)
+                    model.require_backward_grad_sync = (batch_idx + 1 == num_batches)  # pyright: ignore[reportArgumentType]
 
                 with autocast_context:
                     outputs = model(input_ids=input_ids, attention_mask=attention_mask)
@@ -285,7 +298,7 @@ def train_model(args: argparse.Namespace) -> None:
             })
 
             lr_scheduler.step()
-            running_loss.update(batch_loss)
+            running_loss.update(batch_loss)  # pyright: ignore[reportArgumentType]
 
             if args.valid_interval is not None and (global_step + 1) % args.valid_interval == 0:
                 if args.ddp_enabled:
@@ -295,7 +308,7 @@ def train_model(args: argparse.Namespace) -> None:
                     device=device,
                     tokenizer=tokenizer,
                     eval_data_loader=validation_data_loader,
-                    validation_steps=valid_steps,
+                    eval_steps=valid_steps,
                     args=args,
                     autocast_context=autocast_context,
                 )
@@ -313,6 +326,7 @@ def train_model(args: argparse.Namespace) -> None:
                     tokenizer=tokenizer,
                     generation_steps=generation_steps,
                     args=args,
+                    generation_log_interval=args.generation_log_interval,
                 )
                 for bs_key in ('bert_score', 'bert_score_unscaled'):
                     if bs_key in gen_results:
@@ -365,6 +379,65 @@ def train_model(args: argparse.Namespace) -> None:
 
             if is_last_iteration:
                 break
+
+    def do_test():
+        utils.master_print('******** Testing model ********')
+        test_results = utils.eval_model(
+            model=unwrapped_model,
+            device=device,
+            tokenizer=tokenizer,
+            eval_data_loader=test_data_loader,
+            eval_steps=test_steps,
+            args=args,
+            autocast_context=autocast_context,
+        )
+        utils.master_print(f'  Number of testing steps: {test_steps}')
+        utils.master_print(f'  Test loss: {test_results["loss"]}')
+        utils.master_print(f'  Test perplexity: {utils.get_perplexity(test_results["loss"])}')
+        if wandb_run is not None:
+            wandb_run.log({
+                'test/loss': test_results['loss'],
+                'test/perplexity': utils.get_perplexity(test_results["loss"]),
+            })
+
+    def do_test_generation():
+        utils.master_print('******** Testing generation ********')
+        gen_results = utils.eval_generation(
+            model=unwrapped_model,
+            device=device,
+            dataset=test_dataset.dataset,
+            tokenizer=tokenizer,
+            generation_steps=generation_steps,
+            args=args,
+            generation_log_interval=args.generation_log_interval,
+        )
+
+        utils.master_print(f'  Number of generation steps: {generation_steps}')
+        for bs_key in ('bert_score', 'bert_score_unscaled'):
+            if bs_key in gen_results:
+                utils.master_print(
+                    f'{bs_key}: precision = {gen_results[bs_key]["precision"]:0.3f}, '
+                    f'recall = {gen_results[bs_key]["recall"]:0.3f}, '
+                    f'F1 = {gen_results[bs_key]["f1"]:0.3f}'
+                )
+                if wandb_run is not None:
+                    wandb_run.log({
+                        f'test/{bs_key}/precision': gen_results[bs_key]['precision'],
+                        f'test/{bs_key}/recall': gen_results[bs_key]['recall'],
+                        f'test/{bs_key}/f1': gen_results[bs_key]['f1'],
+                    })
+
+    # main stuff start here
+    if args.do_train:
+        train_data_iterator = iter(train_data_loader)
+        while global_step < args.train_steps:
+            do_train_single_epoch()
+
+    if args.do_test:
+        do_test()
+
+    if args.do_test_generation:
+        do_test_generation()
 
     if args.push_to_hub:
         unwrapped_model.push_to_hub(args.repo_id, commit_message=args.commit_message)

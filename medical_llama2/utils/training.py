@@ -258,7 +258,7 @@ def eval_model(
     device: torch.device,
     tokenizer: LlamaTokenizer,
     eval_data_loader: DataLoader,
-    validation_steps: int,
+    eval_steps: int,
     args: argparse.Namespace,
     autocast_context=None,
 ) -> dict[str, float]:
@@ -268,8 +268,8 @@ def eval_model(
 
     progress_bar_desc = f'GPU{args.rank} - Evaluating' if args.ddp_enabled else 'Evaluating'
     progress_bar = tqdm(
-        range(validation_steps),
-        total=validation_steps,
+        range(eval_steps),
+        total=eval_steps,
         desc=progress_bar_desc,
         disable=args.local_rank != 0,
         ncols=120,
@@ -292,7 +292,7 @@ def eval_model(
             evaluation_loss.update(loss.detach())
             progress_bar.set_postfix({'loss': f'{loss:0.3f}'})
             progress_bar.update()
-            if batch_idx + 1 >= validation_steps:
+            if batch_idx + 1 >= eval_steps:
                 break
 
     # set model back to the original mode
@@ -312,6 +312,7 @@ def eval_generation(
     tokenizer: LlamaTokenizer,
     generation_steps: int,
     args: argparse.Namespace,
+    generation_log_interval: int | None = None,
 ) -> dict[str, Any]:
     generation_steps = min(generation_steps, len(dataset))
 
@@ -381,13 +382,14 @@ def eval_generation(
         )
         model_response = tokenizer.decode(output[0, len(model_inputs['input_ids'][0]):], skip_special_tokens=True)
         model_response = model_response.strip()
-        # TODO: calculate scores here (e.g. BERTScore)
+
         if args.is_master:
-            if args.instruction_field in item:
-                progress_bar.write(f'>> INST: {item[args.instruction_field]}')
-            progress_bar.write(f'>> INPUT: {input_data}')
-            progress_bar.write(f'>> OUTPUT: {output_data}')
-            progress_bar.write(f'>> MODEL: {model_response}')
+            if generation_log_interval is not None and (idx + 1) % generation_log_interval == 0:
+                if args.instruction_field in item:
+                    progress_bar.write(f'>> INST: {item[args.instruction_field]}')
+                progress_bar.write(f'>> INPUT: {input_data}')
+                progress_bar.write(f'>> OUTPUT: {output_data}')
+                progress_bar.write(f'>> MODEL: {model_response}')
             predictions.append(model_response)
             references.append(output_data)
 
@@ -396,29 +398,10 @@ def eval_generation(
             break
 
     model.train(is_training)
-    outputs = {}
-    if args.is_master:
-        if bert_scorer is not None:
-            outputs['bert_score'] = compute_bert_score(
-                bert_scorer,
-                cands=predictions,
-                refs=references,
-            )
-            print(
-                f'BERTScore: precision = {outputs["bert_score"]["precision"]:0.3f}, '
-                f'recall = {outputs["bert_score"]["recall"]:0.3f}, '
-                f'F1 = {outputs["bert_score"]["f1"]:0.3f}'
-            )
-        if bert_scorer_unscaled is not None:
-            outputs['bert_score_unscaled'] = compute_bert_score(
-                bert_scorer_unscaled,
-                cands=predictions,
-                refs=references,
-            )
-            print(
-                f'BERTScore (unscaled): precision = {outputs["bert_score_unscaled"]["precision"]:0.3f}, '
-                f'recall = {outputs["bert_score_unscaled"]["recall"]:0.3f}, '
-                f'F1 = {outputs["bert_score_unscaled"]["f1"]:0.3f}'
-            )
 
+    outputs = {}
+    if bert_scorer is not None:
+        outputs['bert_score'] = compute_bert_score(bert_scorer, cands=predictions, refs=references)
+    if bert_scorer_unscaled is not None:
+        outputs['bert_score_unscaled'] = compute_bert_score(bert_scorer_unscaled, cands=predictions, refs=references)
     return outputs
