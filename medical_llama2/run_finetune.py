@@ -140,7 +140,7 @@ def train_model(args: argparse.Namespace) -> None:
         )
         model = get_peft_model(model, peft_config)
 
-    if args.is_master:
+    if args.is_master and args.do_train:
         model.print_trainable_parameters()
 
     learning_rate = args.learning_rate
@@ -166,8 +166,8 @@ def train_model(args: argparse.Namespace) -> None:
         raise ValueError(f'Unsupported scheduler decay method: {args.decay_method}')
 
     unwrapped_model = model
-    # convert the model to distributed data parallel
-    if args.ddp_enabled:
+    # wrap the model with `DDP` to enable training with distributed data parallel
+    if args.ddp_enabled and args.do_train:
         model = DDP(model, device_ids=[args.local_rank], output_device=args.local_rank)
 
     # logging with wandb
