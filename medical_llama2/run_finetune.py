@@ -448,7 +448,7 @@ def train_model(args: argparse.Namespace) -> None:
     if args.is_master and args.do_test_generation:
         do_test_generation()
 
-    if args.push_to_hub:
+    if args.is_master and args.push_to_hub:
         unwrapped_model.push_to_hub(args.repo_id, commit_message=args.commit_message)
         if args.push_tokenizer:
             tokenizer.push_to_hub(args.repo_id)
