@@ -97,7 +97,7 @@ def _add_model_opts(parser: argparse.ArgumentParser) -> None:
     group.add_argument(
         '--peft_checkpoint',
         type=str,
-        help='Loading peft model from this checkpoint if set (if None, lora params will be initialized randomly)',
+        help='Loading peft model from this checkpoint if set (if None, lora params will be initialized with the default values)',
     )
     group.add_argument(
         '--tokenizer_checkpoint',
