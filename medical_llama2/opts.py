@@ -92,7 +92,7 @@ def _add_model_opts(parser: argparse.ArgumentParser) -> None:
         '--model_checkpoint',
         type=str,
         help='Path to the HuggingFace model checkpoint being used',
-        default='meta-llama/Llama-2-7b-hf',
+        default='meta-llama/Llama-2-7b-chat-hf',
     )
     group.add_argument(
         '--peft_from_checkpoint',
@@ -103,7 +103,7 @@ def _add_model_opts(parser: argparse.ArgumentParser) -> None:
         '--tokenizer_checkpoint',
         type=str,
         help='Path to the HuggingFace tokenizer checkpoint being used',
-        default='meta-llama/Llama-2-7b-hf',
+        default='meta-llama/Llama-2-7b-chat-hf',
     )
     group.add_argument(
         '--seq_length',
