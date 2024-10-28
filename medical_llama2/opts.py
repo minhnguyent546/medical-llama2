@@ -451,7 +451,6 @@ def _add_generation_opts(parser: argparse.ArgumentParser) -> None:
         help='Penalty for repetition',
     )
 
-
 def _add_ddp_training_opts(parser: argparse.ArgumentParser) -> None:
     group = parser.add_argument_group('DDP training')
     group.add_argument(
@@ -460,6 +459,7 @@ def _add_ddp_training_opts(parser: argparse.ArgumentParser) -> None:
         help='DDP backend used for distributed training',
         default='nccl',
     )
+
 def _add_lora_opts(parser: argparse.ArgumentParser) -> None:
     group = parser.add_argument_group('LoRA config')
     group.add_argument(
@@ -492,6 +492,19 @@ def _add_lora_opts(parser: argparse.ArgumentParser) -> None:
         nargs='*',
         type=str,
         help='List of modules apart from adapter layers to be set as trainable and saved in the final checkpoint',
+    )
+    group.add_argument(
+        '--lora_bias',
+        type=str,
+        help='Bias type for lora',
+        choices=['none', 'all', 'lora_only'],
+        default='none',
+    )
+    group.add_argument(
+        '--task_type',
+        type=str,
+        help='Task type for peft',
+        choices=["SEQ_CLS", "SEQ_2_SEQ_LM", "CAUSAL_LM", "TOKEN_CLS", "QUESTION_ANS", "FEATURE_EXTRACTION"],
     )
 
 def _add_bitsandbytes_opts(parser: argparse.ArgumentParser) -> None:

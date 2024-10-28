@@ -128,15 +128,34 @@ def train_model(args: argparse.Namespace) -> None:
     if args.peft_from_checkpoint is not None:
         utils.master_print(f'Getting peft model from {args.peft_from_checkpoint}')
         model = PeftModel.from_pretrained(model, args.peft_from_checkpoint, is_trainable=args.do_train)
+        # override config in args with the config from the checkpoint
+        peft_config = model.peft_config['default']
+        keys_to_override = [
+            'r',
+            'lora_alpha',
+            'lora_dropout',
+            'target_modules',
+            'modules_to_save',
+            'bias',
+            'task_type',
+        ]
+        for key in keys_to_override:
+            if hasattr(peft_config, key):
+                args_key = key
+                if key != 'task_type' and not key.startswith('lora_'):
+                    args_key = f'lora_{key}'
+                setattr(args, args_key, getattr(peft_config, key))
     else:
+        if args.task_type is None:
+            raise ValueError('Please specify the task type for PEFT (via --task_type)')
         peft_config = LoraConfig(
             r=args.lora_r,
             lora_alpha=args.lora_alpha,
             lora_dropout=args.lora_dropout,
             target_modules=args.lora_target_modules,
             modules_to_save=args.lora_modules_to_save,
-            bias='none',
-            task_type=TaskType.CAUSAL_LM,
+            bias=args.lora_bias,
+            task_type=args.task_type,
         )
         model = get_peft_model(model, peft_config)
 

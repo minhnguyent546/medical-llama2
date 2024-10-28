@@ -7,10 +7,6 @@ import datasets
 from transformers import LlamaTokenizer
 
 import medical_llama2.utils as utils
-from medical_llama2.constants import (
-    ALPACA_SYSTEM_PROMPT,
-    LLAMA_SYSTEM_PROMPT,
-)
 
 
 class DialogueDataset(Dataset):
