@@ -127,7 +127,7 @@ def train_model(args: argparse.Namespace) -> None:
     # getting peft model
     if args.peft_from_checkpoint is not None:
         utils.master_print(f'Getting peft model from {args.peft_from_checkpoint}')
-        model = PeftModel.from_pretrained(model, args.peft_from_checkpoint)
+        model = PeftModel.from_pretrained(model, args.peft_from_checkpoint, is_trainable=args.do_train)
     else:
         peft_config = LoraConfig(
             r=args.lora_r,
@@ -216,7 +216,7 @@ def train_model(args: argparse.Namespace) -> None:
     if args.generation_interval is not None:
         utils.master_print(
             f'  Generation interval: {args.generation_interval}, '
-            f'generation steps: {generation_steps}, ',
+            f'generation steps: {generation_steps}, '
             f'log interval: {args.generation_log_interval}'
         )
     if wandb_run is not None:
@@ -224,6 +224,7 @@ def train_model(args: argparse.Namespace) -> None:
     utils.master_print(f'  Push to hub: {args.push_to_hub}')
     utils.master_print(f'  Do training: {args.do_train}')
     utils.master_print(f'  Do testing: {args.do_test}')
+    utils.master_print(f'  Do testing generation: {args.do_test_generation}')
 
     if args.do_train:
         train_progressbar_desc = f'GPU{args.rank} - Training' if args.ddp_enabled else 'Training'
@@ -326,7 +327,7 @@ def train_model(args: argparse.Namespace) -> None:
                 })
                 running_loss.reset()
 
-            if args.generation_interval is not None and (global_step + 1) % args.generation_interval == 0:
+            if args.is_master and args.generation_interval is not None and (global_step + 1) % args.generation_interval == 0:
                 gen_results = utils.eval_generation(
                     model=unwrapped_model,
                     device=device,
@@ -444,7 +445,7 @@ def train_model(args: argparse.Namespace) -> None:
     if args.do_test:
         do_test()
 
-    if args.do_test_generation:
+    if args.is_master and args.do_test_generation:
         do_test_generation()
 
     if args.push_to_hub:
