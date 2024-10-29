@@ -337,9 +337,15 @@ def _add_common_training_opts(parser: argparse.ArgumentParser) -> None:
         help='Generation validation interval',
     )
     group.add_argument(
-        '--generation_steps',
+        '--valid_generation_steps',
         type=int,
-        help='Number of generation steps (leave None to run on the entire dataset)',
+        help='Number of generation steps for validation (leave None to run on the entire dataset)',
+        default=25,
+    )
+    group.add_argument(
+        '--test_generation_steps',
+        type=int,
+        help='Number of generation steps for test (leave None to run on the entire dataset)',
         default=25,
     )
     group.add_argument(
@@ -458,6 +464,12 @@ def _add_ddp_training_opts(parser: argparse.ArgumentParser) -> None:
         type=str,
         help='DDP backend used for distributed training',
         default='nccl',
+    )
+    group.add_argument(
+        '--ddp_timeout',
+        type=int,
+        help='Timeout for operation executed against in second',
+        default=1200,
     )
 
 def _add_lora_opts(parser: argparse.ArgumentParser) -> None:

@@ -24,6 +24,7 @@ from medical_llama2.utils import (
     ensure_dir,
     ensure_num_saved_checkpoints,
     fixed_causal_lm_loss,
+    gather_object,
     generate_alpaca_prompt,
     generate_llama2_prompt,
 )
@@ -272,7 +273,6 @@ def eval_model(
         total=eval_steps,
         desc=progress_bar_desc,
         disable=args.local_rank != 0,
-        ncols=120,
     )
 
     # set model in evaluation mode
@@ -316,21 +316,13 @@ def eval_generation(
 ) -> dict[str, Any]:
     generation_steps = min(generation_steps, len(dataset))
 
-    if args.ddp_enabled:
-        progress_bar = tqdm(
-            range(generation_steps),
-            total=generation_steps,
-            desc=f'GPU{args.rank} - Evaluating generation',
-            disable=args.local_rank != 0,
-            ncols=120,
-        )
-    else:
-        progress_bar = tqdm(
-            range(generation_steps),
-            total=generation_steps,
-            desc='Evaluating generation',
-            ncols=120,
-        )
+    progress_bar_desc = f'GPU{args.rank} - Generating' if args.ddp_enabled else 'Generating'
+    progress_bar = tqdm(
+        range(generation_steps),
+        total=generation_steps,
+        desc=progress_bar_desc,
+        disable=args.local_rank != 0,
+    )
 
     bert_scorer = None
     bert_scorer_unscaled = None
@@ -383,7 +375,7 @@ def eval_generation(
         model_response = tokenizer.decode(output[0, len(model_inputs['input_ids'][0]):], skip_special_tokens=True)
         model_response = model_response.strip()
 
-        if args.is_master:
+        if args.is_local_master:
             if generation_log_interval is not None and (idx + 1) % generation_log_interval == 0:
                 if args.instruction_field in item:
                     progress_bar.write(f'>> INST: {item[args.instruction_field]}')
@@ -399,9 +391,17 @@ def eval_generation(
 
     model.train(is_training)
 
+    # gather responses across devices
+    if args.ddp_enabled:
+        predictions = gather_object(predictions, args)
+        references = gather_object(references, args)
     outputs = {}
     if bert_scorer is not None:
+        assert predictions is not None
+        assert references is not None
         outputs['bert_score'] = compute_bert_score(bert_scorer, cands=predictions, refs=references)
     if bert_scorer_unscaled is not None:
+        assert predictions is not None
+        assert references is not None
         outputs['bert_score_unscaled'] = compute_bert_score(bert_scorer_unscaled, cands=predictions, refs=references)
     return outputs

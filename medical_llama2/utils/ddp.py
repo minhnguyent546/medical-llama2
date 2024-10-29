@@ -1,5 +1,6 @@
 import argparse
 import os
+from datetime import timedelta
 
 import torch
 import torch.distributed as dist
@@ -20,8 +21,27 @@ def setup_ddp(args: argparse.Namespace) -> None:
         # set appropriate CUDA device
         torch.cuda.set_device(args.local_rank)
         # init process group
-        dist.init_process_group(backend=getattr(args, 'ddp_backend', 'nccl'))  # nccl, gloo, etc
+        dist.init_process_group(
+            backend=getattr(args, 'ddp_backend', 'nccl'),
+            timeout=timedelta(seconds=args.ddp_timeout),
+        )  # nccl, gloo, etc
 
 def cleanup_ddp(args: argparse.Namespace) -> None:
     if args.ddp_enabled:
         dist.destroy_process_group()
+
+def gather_object(data_object: object, args: argparse.Namespace) -> list[object] | None:
+    gathered_data = [None for _ in range(args.world_size)]
+    dist.gather_object(
+        data_object,
+        gathered_data if args.is_master else None,
+        dst=args.master_rank,
+    )
+    return gathered_data
+
+def divide_across_device(value: int, rank: int, world_size: int, keep_rem: bool = True) -> int:
+    rem = value % world_size
+    ret = value // world_size
+    if keep_rem:
+        ret += int(rank < rem)
+    return ret

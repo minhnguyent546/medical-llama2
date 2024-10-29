@@ -86,6 +86,18 @@ def train_model(args: argparse.Namespace) -> None:
         per_device_eval_batch_size=per_device_eval_batch_size,
     )
 
+    # validation and test datasets for generation for this device (i.e. this node)
+    per_device_validation_dataset_for_generation = validation_dataset.dataset.select(range(
+        args.rank,
+        len(validation_dataset),
+        args.world_size,
+    ))
+    per_device_test_dataset_for_generation = test_dataset.dataset.select(range(
+        args.rank,
+        len(test_dataset),
+        args.world_size,
+    ))
+
     # training device
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     device = torch.device(device, args.local_rank)
@@ -204,13 +216,27 @@ def train_model(args: argparse.Namespace) -> None:
 
     valid_steps = args.valid_steps
     test_steps = args.test_steps
-    generation_steps = args.generation_steps
+    valid_generation_steps = args.valid_generation_steps
+    test_generation_steps = args.test_generation_steps
     if valid_steps is None:
-        valid_steps = len(validation_data_loader)
+        valid_steps = len(test_data_loader)
     if test_steps is None:
         test_steps = len(test_data_loader)
-    if generation_steps is None:
-        generation_steps = len(validation_dataset.dataset)
+    if valid_generation_steps is None:
+        valid_generation_steps = len(validation_dataset.dataset)
+    if test_generation_steps is None:
+        test_generation_steps = len(test_dataset.dataset)
+
+    # divide generation steps across devices
+    per_device_validation_generation_steps = utils.divide_across_device(
+        valid_generation_steps,
+        rank=args.rank, world_size=args.world_size, keep_rem=True,
+    )
+    per_device_test_generation_steps = utils.divide_across_device(
+        test_generation_steps,
+        rank=args.rank, world_size=args.world_size, keep_rem=True,
+    )
+
     utils.master_print('******** General information ********')
     utils.master_print(
         f'  Dataset: train_size={len(train_data_loader)}, '
@@ -235,7 +261,7 @@ def train_model(args: argparse.Namespace) -> None:
     if args.generation_interval is not None:
         utils.master_print(
             f'  Generation interval: {args.generation_interval}, '
-            f'generation steps: {generation_steps}, '
+            f'per device valid. generation steps: {per_device_validation_generation_steps}, '
             f'log interval: {args.generation_log_interval}'
         )
     if wandb_run is not None:
@@ -345,14 +371,16 @@ def train_model(args: argparse.Namespace) -> None:
                     'loss/valid': valid_results['loss'],
                 })
                 running_loss.reset()
+                if args.ddp_enabled:
+                    dist.barrier()
 
-            if args.is_master and args.generation_interval is not None and (global_step + 1) % args.generation_interval == 0:
+            if args.generation_interval is not None and (global_step + 1) % args.generation_interval == 0:
                 gen_results = utils.eval_generation(
                     model=unwrapped_model,
                     device=device,
-                    dataset=validation_dataset.dataset,
+                    dataset=per_device_validation_dataset_for_generation,
                     tokenizer=tokenizer,
-                    generation_steps=generation_steps,
+                    generation_steps=per_device_validation_generation_steps,
                     args=args,
                     generation_log_interval=args.generation_log_interval,
                 )
@@ -363,6 +391,9 @@ def train_model(args: argparse.Namespace) -> None:
                             f'{bs_key}/recall': gen_results[bs_key]['recall'],
                             f'{bs_key}/f1': gen_results[bs_key]['f1'],
                         })
+
+                if args.ddp_enabled:
+                    dist.barrier()
 
             if (
                 len(wandb_accum_logs) >= args.wandb_logging_interval or
@@ -433,14 +464,15 @@ def train_model(args: argparse.Namespace) -> None:
         gen_results = utils.eval_generation(
             model=unwrapped_model,
             device=device,
-            dataset=test_dataset.dataset,
+            dataset=per_device_test_dataset_for_generation,
             tokenizer=tokenizer,
-            generation_steps=generation_steps,
+            generation_steps=per_device_test_generation_steps,
             args=args,
             generation_log_interval=args.generation_log_interval,
         )
 
-        utils.master_print(f'  Number of generation steps: {generation_steps}')
+        utils.master_print(f'  Total generation steps: {test_generation_steps}')
+        utils.master_print(f'  Per device generation steps: {per_device_test_generation_steps}')
         for bs_key in ('bert_score', 'bert_score_unscaled'):
             if bs_key in gen_results:
                 utils.master_print(
@@ -464,7 +496,7 @@ def train_model(args: argparse.Namespace) -> None:
     if args.do_test:
         do_test()
 
-    if args.is_master and args.do_test_generation:
+    if args.do_test_generation:
         do_test_generation()
 
     if args.is_master and args.push_to_hub:
