@@ -396,9 +396,9 @@ def eval_generation(
     if args.ddp_enabled:
         predictions = gather_object(predictions, args)
         references = gather_object(references, args)
-        if predictions is not None:  # pyright: ignore[reportUnnecessaryComparison]
+        if len(predictions) > 0 and predictions[0] is not None:  # pyright: ignore[reportUnnecessaryComparison]
             predictions = list(itertools.chain.from_iterable(predictions))
-        if references is not None:  # pyright: ignore[reportUnnecessaryComparison]
+        if len(references) > 0 and references[0] is not None:  # pyright: ignore[reportUnnecessaryComparison]
             references = list(itertools.chain.from_iterable(references))
     outputs = {}
     if bert_scorer is not None:
