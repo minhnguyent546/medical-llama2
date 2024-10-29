@@ -1,4 +1,5 @@
 import argparse
+import itertools
 import math
 import os
 from contextlib import nullcontext
@@ -395,6 +396,8 @@ def eval_generation(
     if args.ddp_enabled:
         predictions = gather_object(predictions, args)
         references = gather_object(references, args)
+        predictions = list(itertools.chain.from_iterable(predictions))
+        references = list(itertools.chain.from_iterable(references))
     outputs = {}
     if bert_scorer is not None:
         assert predictions is not None
