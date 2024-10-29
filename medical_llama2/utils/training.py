@@ -376,15 +376,15 @@ def eval_generation(
         model_response = tokenizer.decode(output[0, len(model_inputs['input_ids'][0]):], skip_special_tokens=True)
         model_response = model_response.strip()
 
-        if args.is_local_master:
-            if generation_log_interval is not None and (idx + 1) % generation_log_interval == 0:
-                if args.instruction_field in item:
-                    progress_bar.write(f'>> INST: {item[args.instruction_field]}')
-                progress_bar.write(f'>> INPUT: {input_data}')
-                progress_bar.write(f'>> OUTPUT: {output_data}')
-                progress_bar.write(f'>> MODEL: {model_response}')
-            predictions.append(model_response)
-            references.append(output_data)
+        if args.is_local_master and generation_log_interval is not None and (idx + 1) % generation_log_interval == 0:
+            if args.instruction_field in item:
+                progress_bar.write(f'>> INST: {item[args.instruction_field]}')
+            progress_bar.write(f'>> INPUT: {input_data}')
+            progress_bar.write(f'>> OUTPUT: {output_data}')
+            progress_bar.write(f'>> MODEL: {model_response}')
+
+        predictions.append(model_response)
+        references.append(output_data)
 
         progress_bar.update()
         if idx + 1 >= generation_steps:
