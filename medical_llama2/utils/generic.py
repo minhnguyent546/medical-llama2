@@ -34,7 +34,7 @@ def load_yaml_config(config_path: str):
         config = yaml.safe_load(config_file)
     return config
 
-def master_print(*values: object, local_master: bool = False, **kwargs) -> None:
+def master_print(*values: object, local_master: bool = True, **kwargs) -> None:
     is_master = bool(int(os.environ.get('is_master', 0)))
     is_local_master = bool(int(os.environ.get('is_local_master', 0)))
     should_print = (is_master or (local_master and is_local_master))
