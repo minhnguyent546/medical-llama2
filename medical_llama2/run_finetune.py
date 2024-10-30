@@ -469,6 +469,7 @@ def train_model(args: argparse.Namespace) -> None:
             generation_steps=per_device_test_generation_steps,
             args=args,
             generation_log_interval=args.generation_log_interval,
+            is_test=True,
         )
 
         utils.master_print(f'  Total generation steps: {test_generation_steps}')
@@ -478,7 +479,8 @@ def train_model(args: argparse.Namespace) -> None:
                 utils.master_print(
                     f'{bs_key}: precision = {gen_results[bs_key]["precision"]:0.3f}, '
                     f'recall = {gen_results[bs_key]["recall"]:0.3f}, '
-                    f'F1 = {gen_results[bs_key]["f1"]:0.3f}'
+                    f'F1 = {gen_results[bs_key]["f1"]:0.3f} '
+                    f'hash_code = {gen_results[bs_key]["hash_code"]}',
                 )
                 if wandb_run is not None:
                     wandb_run.log({

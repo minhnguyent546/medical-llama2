@@ -144,16 +144,30 @@ def generate_alpaca_prompt(
         )
     return prompt.strip()
 
-def compute_bert_score(bert_scorer: BERTScorer, cands, refs) -> dict[str, float]:
-    precision, recall, f1 = bert_scorer.score(
+def compute_bert_score(
+    bert_scorer: BERTScorer,
+    cands: list[str],
+    refs: list[str],
+    verbose: bool = False,
+    return_hash: bool = False,
+) -> dict[str, float]:
+    scores = bert_scorer.score(
         cands=cands,
         refs=refs,
+        verbose=verbose,
+        return_hash=return_hash,
     )
+    if return_hash:
+        scores, hash_code = scores
+    precision, recall, f1 = scores
     precision = precision.mean().item()
     recall = recall.mean().item()
     f1 = f1.mean().item()
-    return {
+    outputs = {
         'precision': precision,
         'recall': recall,
         'f1': f1,
     }
+    if return_hash:
+        outputs['hash_code'] = hash_code
+    return outputs

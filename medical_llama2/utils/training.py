@@ -314,6 +314,7 @@ def eval_generation(
     generation_steps: int,
     args: argparse.Namespace,
     generation_log_interval: int | None = None,
+    is_test: bool = False,
 ) -> dict[str, Any]:
     generation_steps = min(generation_steps, len(dataset))
 
@@ -404,9 +405,22 @@ def eval_generation(
     if bert_scorer is not None:
         assert predictions is not None
         assert references is not None
-        outputs['bert_score'] = compute_bert_score(bert_scorer, cands=predictions, refs=references)
+        outputs['bert_score'] = compute_bert_score(
+            bert_scorer,
+            cands=predictions,
+            refs=references,
+            verbose=True,
+            return_hash=is_test,
+        )
     if bert_scorer_unscaled is not None:
         assert predictions is not None
         assert references is not None
-        outputs['bert_score_unscaled'] = compute_bert_score(bert_scorer_unscaled, cands=predictions, refs=references)
+        outputs['bert_score_unscaled'] = compute_bert_score(
+            bert_scorer_unscaled,
+            cands=predictions,
+            refs=references,
+            verbose=True,
+            return_hash=is_test,
+        )
+
     return outputs
