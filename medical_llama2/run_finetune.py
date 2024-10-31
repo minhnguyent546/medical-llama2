@@ -218,13 +218,13 @@ def train_model(args: argparse.Namespace) -> None:
     test_steps = args.test_steps
     valid_generation_steps = args.valid_generation_steps
     test_generation_steps = args.test_generation_steps
-    if valid_steps is None:
+    if valid_steps < 0:
         valid_steps = len(test_data_loader)
-    if test_steps is None:
+    if test_steps < 0:
         test_steps = len(test_data_loader)
-    if valid_generation_steps is None:
+    if valid_generation_steps < 0:
         valid_generation_steps = len(validation_dataset.dataset)
-    if test_generation_steps is None:
+    if test_generation_steps < 0:
         test_generation_steps = len(test_dataset.dataset)
 
     # divide generation steps across devices

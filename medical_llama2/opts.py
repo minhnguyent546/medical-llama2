@@ -320,7 +320,7 @@ def _add_common_training_opts(parser: argparse.ArgumentParser) -> None:
     group.add_argument(
         '--valid_steps',
         type=int,
-        help='Number of validation steps (leave None to validate on the entire dataset)',
+        help='Number of validation steps (use -1 to validate on the entire dataset)',
         default=50,
     )
 
@@ -328,7 +328,7 @@ def _add_common_training_opts(parser: argparse.ArgumentParser) -> None:
     group.add_argument(
         '--test_steps',
         type=int,
-        help='Number of testing steps (used for testing the model, leave None to test on the entire dataset)',
+        help='Number of testing steps (used for testing the model, use -1 to test on the entire dataset)',
         default=50,
     )
     group.add_argument(
@@ -339,13 +339,13 @@ def _add_common_training_opts(parser: argparse.ArgumentParser) -> None:
     group.add_argument(
         '--valid_generation_steps',
         type=int,
-        help='Number of generation steps for validation (leave None to run on the entire dataset)',
+        help='Number of generation steps for validation (use -1 to run on the entire dataset)',
         default=25,
     )
     group.add_argument(
         '--test_generation_steps',
         type=int,
-        help='Number of generation steps for test (leave None to run on the entire dataset)',
+        help='Number of generation steps for test (use -1 to run on the entire dataset)',
         default=25,
     )
     group.add_argument(
