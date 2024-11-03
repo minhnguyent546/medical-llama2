@@ -300,6 +300,7 @@ def train_model(args: argparse.Namespace) -> None:
 
         batch_loss = 0.0
 
+        train_data_iterator = iter(train_data_loader)
         for update_step in range(total_updates):
             is_last_iteration = (global_step + 1 >= args.train_steps)
 
@@ -491,7 +492,6 @@ def train_model(args: argparse.Namespace) -> None:
 
     # main stuff start here
     if args.do_train:
-        train_data_iterator = iter(train_data_loader)
         while global_step < args.train_steps:
             do_train_single_epoch()
 
