@@ -60,7 +60,7 @@ def train_model(args: argparse.Namespace) -> None:
 
     # MedicalDataset
     dialogue_dataset_common_kwargs = {
-        'tokenizer': tokenizer, 'seq_length': args.seq_length,
+        'tokenizer': tokenizer, 'seq_length': args.max_seq_length,
         'input_field': args.input_field, 'output_field': args.output_field,
         'instruction_field': args.instruction_field, 'train_on_inputs': args.train_on_inputs,
         'prompt_template': args.prompt_template, 'dataset_num_procs': args.dataset_num_procs

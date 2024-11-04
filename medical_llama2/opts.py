@@ -118,7 +118,7 @@ def _add_model_opts(parser: argparse.ArgumentParser) -> None:
         default='meta-llama/Llama-2-7b-chat-hf',
     )
     group.add_argument(
-        '--seq_length',
+        '--max_seq_length',
         type=int,
         help='Maximum sequence length',
         default=512,
