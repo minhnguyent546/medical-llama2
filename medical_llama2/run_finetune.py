@@ -65,9 +65,13 @@ def train_model(args: argparse.Namespace) -> None:
         'instruction_field': args.instruction_field, 'train_on_inputs': args.train_on_inputs,
         'prompt_template': args.prompt_template, 'dataset_num_procs': args.dataset_num_procs
     }
-    train_dataset = DialogueDataset(dataset=raw_dataset['train'], **dialogue_dataset_common_kwargs)  # pyright: ignore[reportArgumentType]
-    validation_dataset = DialogueDataset(dataset=raw_dataset['validation'], **dialogue_dataset_common_kwargs)  # pyright: ignore[reportArgumentType]
-    test_dataset = DialogueDataset(dataset=raw_dataset['test'], **dialogue_dataset_common_kwargs)  # pyright: ignore[reportArgumentType]
+    train_dataset, validation_dataset, test_dataset = None, None, None
+    if 'train' in raw_dataset:
+        train_dataset = DialogueDataset(dataset=raw_dataset['train'], **dialogue_dataset_common_kwargs)  # pyright: ignore[reportArgumentType]
+    if 'validation' in raw_dataset:
+        validation_dataset = DialogueDataset(dataset=raw_dataset['validation'], **dialogue_dataset_common_kwargs)  # pyright: ignore[reportArgumentType]
+    if 'test' in raw_dataset:
+        test_dataset = DialogueDataset(dataset=raw_dataset['test'], **dialogue_dataset_common_kwargs)  # pyright: ignore[reportArgumentType]
     data_collator = DataCollatorForSeq2Seq(
         tokenizer=tokenizer,
         padding=True,
@@ -87,16 +91,20 @@ def train_model(args: argparse.Namespace) -> None:
     )
 
     # validation and test datasets for generation for this device (i.e. this node)
-    per_device_validation_dataset_for_generation = validation_dataset.dataset.select(range(
-        args.rank,
-        len(validation_dataset),
-        args.world_size,
-    ))
-    per_device_test_dataset_for_generation = test_dataset.dataset.select(range(
-        args.rank,
-        len(test_dataset),
-        args.world_size,
-    ))
+    per_device_validation_dataset_for_generation = None
+    per_device_test_dataset_for_generation = None
+    if validation_dataset is not None:
+        per_device_validation_dataset_for_generation = validation_dataset.dataset.select(range(
+            args.rank,
+            len(validation_dataset),
+            args.world_size,
+        ))
+    if test_dataset is not None:
+        per_device_test_dataset_for_generation = test_dataset.dataset.select(range(
+            args.rank,
+            len(test_dataset),
+            args.world_size,
+        ))
 
     # training device
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -224,13 +232,13 @@ def train_model(args: argparse.Namespace) -> None:
     test_steps = args.test_steps
     valid_generation_steps = args.valid_generation_steps
     test_generation_steps = args.test_generation_steps
-    if valid_steps < 0:
-        valid_steps = len(test_data_loader)
-    if test_steps < 0:
+    if valid_steps < 0 and validation_data_loader is not None:
+        valid_steps = len(validation_data_loader)
+    if test_steps < 0 and test_data_loader is not None:
         test_steps = len(test_data_loader)
-    if valid_generation_steps < 0:
+    if valid_generation_steps < 0 and validation_dataset is not None:
         valid_generation_steps = len(validation_dataset.dataset)
-    if test_generation_steps < 0:
+    if test_generation_steps < 0 and test_dataset is not None:
         test_generation_steps = len(test_dataset.dataset)
 
     # divide generation steps across devices
@@ -245,9 +253,9 @@ def train_model(args: argparse.Namespace) -> None:
 
     utils.master_print('******** General information ********')
     utils.master_print(
-        f'  Dataset: train_size={len(train_data_loader)}, '
-        f'test_size={len(test_data_loader)}, '
-        f'validation_size={len(validation_data_loader)}'
+        f'  Dataset: train_size={len(train_data_loader) if train_data_loader else 0}, '
+        f'test_size={len(test_data_loader) if test_data_loader else 0}, '
+        f'validation_size={len(validation_data_loader) if validation_data_loader else 0}'
     )
     utils.master_print(
         f'  Effective batch size: {effective_batch_size} '
@@ -255,18 +263,19 @@ def train_model(args: argparse.Namespace) -> None:
         f'gradient_accum_steps={args.gradient_accum_steps}, '
         f'num_devices={args.world_size})'
     )
-    utils.master_print(
-        f'  Total training steps: {args.train_steps} '
-        f'(roughly {args.train_steps * args.gradient_accum_steps / len(train_data_loader):0.2f} epoch(s))'
-    )
+    if train_data_loader is not None:
+        utils.master_print(
+            f'  Total training steps: {args.train_steps} '
+            f'(roughly {args.train_steps * args.gradient_accum_steps / len(train_data_loader):0.2f} epoch(s))'
+        )
     if args.valid_interval is not None:
         utils.master_print(
             f'  Validation interval: {args.valid_interval}, '
             f'validation steps: {valid_steps}'
         )
-    if args.generation_interval is not None:
+    if args.valid_generation_interval is not None:
         utils.master_print(
-            f'  Generation interval: {args.generation_interval}, '
+            f'  Validation generation interval: {args.valid_generation_interval}, '
             f'per device valid. generation steps: {per_device_validation_generation_steps}, '
             f'log interval: {args.generation_log_interval}'
         )
@@ -296,6 +305,7 @@ def train_model(args: argparse.Namespace) -> None:
 
     # function definitions for training, testing model
     def do_train_single_epoch():
+        assert train_data_loader is not None
         nonlocal global_step, wandb_accum_logs, train_progressbar
 
         total_num_samples = len(train_data_loader)
@@ -362,6 +372,7 @@ def train_model(args: argparse.Namespace) -> None:
             running_loss.update(batch_loss)  # pyright: ignore[reportArgumentType]
 
             if args.valid_interval is not None and (global_step + 1) % args.valid_interval == 0:
+                assert validation_data_loader is not None
                 if args.ddp_enabled:
                     running_loss.reduce(dst=args.master_rank)
                 valid_results = utils.eval_model(
@@ -381,7 +392,8 @@ def train_model(args: argparse.Namespace) -> None:
                 if args.ddp_enabled:
                     dist.barrier()
 
-            if args.generation_interval is not None and (global_step + 1) % args.generation_interval == 0:
+            if args.valid_generation_interval is not None and (global_step + 1) % args.valid_generation_interval == 0:
+                assert per_device_validation_dataset_for_generation is not None
                 gen_results = utils.eval_generation(
                     model=unwrapped_model,
                     device=device,
@@ -447,6 +459,7 @@ def train_model(args: argparse.Namespace) -> None:
                 break
 
     def do_test():
+        assert test_data_loader is not None
         utils.master_print('******** Testing model ********')
         test_results = utils.eval_model(
             model=unwrapped_model,
@@ -467,6 +480,7 @@ def train_model(args: argparse.Namespace) -> None:
             })
 
     def do_test_generation():
+        assert per_device_test_dataset_for_generation is not None
         utils.master_print('******** Testing generation ********')
         gen_results = utils.eval_generation(
             model=unwrapped_model,

@@ -72,13 +72,11 @@ def _add_dataset_opts(parser: argparse.ArgumentParser) -> None:
         '--test_size',
         type=int,
         help='Test size',
-        default=3_000,
     )
     group.add_argument(
         '--validation_size',
         type=int,
         help='Test size',
-        default=3_000,
     )
     group.add_argument(
         '--drop_last',
@@ -335,18 +333,10 @@ def _add_common_training_opts(parser: argparse.ArgumentParser) -> None:
         help='Number of validation steps (use -1 to validate on the entire dataset)',
         default=50,
     )
-
-    # testing and generating
     group.add_argument(
-        '--test_steps',
+        '--valid_generation_interval',
         type=int,
-        help='Number of testing steps (used for testing the model, use -1 to test on the entire dataset)',
-        default=50,
-    )
-    group.add_argument(
-        '--generation_interval',
-        type=int,
-        help='Generation validation interval',
+        help='Validation generation interval',
     )
     group.add_argument(
         '--valid_generation_steps',
@@ -355,16 +345,25 @@ def _add_common_training_opts(parser: argparse.ArgumentParser) -> None:
         default=25,
     )
     group.add_argument(
+        '--generation_log_interval',
+        type=int,
+        help='Interval between printing model generations (leave None to disable printing)',
+    )
+
+    # testing, and generating
+    group.add_argument(
+        '--test_steps',
+        type=int,
+        help='Number of testing steps (used for testing the model, use -1 to test on the entire dataset)',
+        default=50,
+    )
+    group.add_argument(
         '--test_generation_steps',
         type=int,
         help='Number of generation steps for test (use -1 to run on the entire dataset)',
         default=25,
     )
-    group.add_argument(
-        '--generation_log_interval',
-        type=int,
-        help='Interval between printing model generations (leave None to disable printing)',
-    )
+
     group.add_argument(
         '--bert_score_type',
         type=str,

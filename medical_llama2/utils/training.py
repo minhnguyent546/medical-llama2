@@ -138,7 +138,8 @@ def save_model(args, model, optimizer=None, lr_scheduler=None, global_step=None,
         if checkpoint_dict:
             torch.save(checkpoint_dict, os.path.join(ck_save_path, 'other_states.pt'))
 
-def get_datasets(args):
+def get_datasets(args) -> datasets.DatasetDict:
+    # assume dataset has only one split
     raw_dataset: datasets.DatasetDict = datasets.load_dataset(
         path=args.dataset_path,
         name=args.dataset_name,
@@ -146,80 +147,97 @@ def get_datasets(args):
         num_proc=args.dataset_num_procs,
         trust_remote_code=True,
     )  # pyright: ignore[reportAssignmentType]
-    raw_dataset = raw_dataset['train'].shuffle(seed=args.seed).train_test_split(
-        test_size=args.test_size,
-        shuffle=True,
-        seed=args.seed,
-    )
-    old_dataset = raw_dataset
-    raw_dataset = old_dataset['train'].shuffle(seed=args.seed).train_test_split(
-        test_size=args.validation_size,
-        shuffle=True,
-        seed=args.seed,
-    )
-    raw_dataset['validation'] = raw_dataset.pop('test')
-    raw_dataset['test'] = old_dataset['test']
+    if args.test_size is not None and args.test_size > 0 and 'train' in raw_dataset:
+        raw_dataset = raw_dataset['train'].shuffle(seed=args.seed).train_test_split(
+            test_size=args.test_size,
+            shuffle=True,
+            seed=args.seed,
+        )
+    if args.validation_size is not None and args.validation_size > 0 and 'train' in raw_dataset:
+        old_dataset = raw_dataset
+        raw_dataset = old_dataset['train'].shuffle(seed=args.seed).train_test_split(
+            test_size=args.validation_size,
+            shuffle=True,
+            seed=args.seed,
+        )
+        raw_dataset['validation'] = raw_dataset.pop('test')
+        if 'test' in old_dataset:
+            raw_dataset['test'] = old_dataset['test']
+
+    if args.do_train and 'train' not in raw_dataset:
+        raise RuntimeError('--do_train is set to True but the training dataset is not found')
+    if args.do_train and args.valid_interval is not None and 'validation' not in raw_dataset:
+        raise RuntimeError('--do_train is set to True and --valid_interval is set but the validation dataset is not found')
+    if (args.do_test or args.do_test_generation) and 'test' not in raw_dataset:
+        raise RuntimeError('--do_test or --do_test_generation is set to True but the testing dataset is not found')
     return raw_dataset
 
 def make_data_loaders(
     args,
-    train_dataset,
-    test_dataset,
-    validation_dataset,
     data_collator,
     per_device_train_batch_size: int,
-    per_device_eval_batch_size: int
-):
+    per_device_eval_batch_size: int,
+    train_dataset=None,
+    test_dataset=None,
+    validation_dataset=None,
+) -> tuple[DataLoader | None, DataLoader | None, DataLoader | None]:  # pyright: ignore[reportMissingTypeArgument]
     train_sampler, test_sampler, validation_sampler = None, None, None
+    train_data_loader, test_data_loader, validation_data_loader = None, None, None
     if args.ddp_enabled:
-        train_sampler = DistributedSampler(
+        if train_dataset is not None:
+            train_sampler = DistributedSampler(
+                train_dataset,
+                num_replicas=args.world_size,
+                rank=args.rank,
+                shuffle=True,
+                seed=args.seed,
+                drop_last=True,
+            )
+        if test_dataset is not None:
+            test_sampler = DistributedSampler(
+                test_dataset,
+                num_replicas=args.world_size,
+                rank=args.rank,
+                shuffle=False,
+                seed=args.seed,
+                drop_last=True,
+            )
+        if validation_dataset is not None:
+            validation_sampler = DistributedSampler(
+                validation_dataset,
+                num_replicas=args.world_size,
+                rank=args.rank,
+                shuffle=False,
+                seed=args.seed,
+                drop_last=True,
+            )
+    if train_dataset is not None:
+        train_data_loader = DataLoader(
             train_dataset,
-            num_replicas=args.world_size,
-            rank=args.rank,
-            shuffle=True,
-            seed=args.seed,
-            drop_last=True,
+            batch_size=per_device_train_batch_size,
+            collate_fn=data_collator,
+            shuffle=(train_sampler is None),
+            sampler=train_sampler,
+            pin_memory=True,
         )
-        test_sampler = DistributedSampler(
+    if test_dataset is not None:
+        test_data_loader = DataLoader(
             test_dataset,
-            num_replicas=args.world_size,
-            rank=args.rank,
+            batch_size=per_device_eval_batch_size,
+            collate_fn=data_collator,
             shuffle=False,
-            seed=args.seed,
-            drop_last=True,
+            sampler=test_sampler,
+            pin_memory=True,
         )
-        validation_sampler = DistributedSampler(
+    if validation_dataset is not None:
+        validation_data_loader = DataLoader(
             validation_dataset,
-            num_replicas=args.world_size,
-            rank=args.rank,
+            batch_size=per_device_eval_batch_size,
+            collate_fn=data_collator,
             shuffle=False,
-            seed=args.seed,
-            drop_last=True,
+            sampler=validation_sampler,
+            pin_memory=True,
         )
-    train_data_loader = DataLoader(
-        train_dataset,
-        batch_size=per_device_train_batch_size,
-        collate_fn=data_collator,
-        shuffle=(train_sampler is None),
-        sampler=train_sampler,
-        pin_memory=True,
-    )
-    test_data_loader = DataLoader(
-        test_dataset,
-        batch_size=per_device_eval_batch_size,
-        collate_fn=data_collator,
-        shuffle=False,
-        sampler=test_sampler,
-        pin_memory=True,
-    )
-    validation_data_loader = DataLoader(
-        validation_dataset,
-        batch_size=per_device_eval_batch_size,
-        collate_fn=data_collator,
-        shuffle=False,
-        sampler=validation_sampler,
-        pin_memory=True,
-    )
     return train_data_loader, test_data_loader, validation_data_loader
 
 def get_mp_dtype(mixed_precision: str, device: torch.device, verbose: bool = True) -> torch.dtype:
