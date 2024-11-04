@@ -95,9 +95,21 @@ def _add_model_opts(parser: argparse.ArgumentParser) -> None:
         default='meta-llama/Llama-2-7b-chat-hf',
     )
     group.add_argument(
+        '--model_checkpoint_revision',
+        type=str,
+        help='Revision of the model checkpoint to load',
+        default='main',
+    )
+    group.add_argument(
         '--peft_checkpoint',
         type=str,
         help='Loading peft model from this checkpoint if set (if None, lora params will be initialized with the default values)',
+    )
+    group.add_argument(
+        '--peft_checkpoint_revision',
+        type=str,
+        help='Revision of the peft checkpoint to load',
+        default='main',
     )
     group.add_argument(
         '--tokenizer_checkpoint',

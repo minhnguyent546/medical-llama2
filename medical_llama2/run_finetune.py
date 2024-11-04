@@ -129,6 +129,7 @@ def train_model(args: argparse.Namespace) -> None:
         quantization_config=(bnb_config if device.type == 'cuda' else None),
         torch_dtype=args.model_torch_dtype,
         use_flash_attention_2=args.use_flash_attn_2,
+        revision=args.model_checkpoint_revision,
     )
     model.config.use_cache = args.use_cache
     # setting config.pretraining_tp to a value different than 1 will activate the more accurate
@@ -139,7 +140,12 @@ def train_model(args: argparse.Namespace) -> None:
     # getting peft model
     if args.peft_checkpoint is not None:
         utils.master_print(f'Getting peft model from {args.peft_checkpoint}')
-        model = PeftModel.from_pretrained(model, args.peft_checkpoint, is_trainable=args.do_train)
+        model = PeftModel.from_pretrained(
+            model,
+            args.peft_checkpoint,
+            is_trainable=args.do_train,
+            revision=args.peft_checkpoint_revision,
+        )
         # override config in args with the config from the checkpoint
         peft_config = model.peft_config['default']
         keys_to_override = [
