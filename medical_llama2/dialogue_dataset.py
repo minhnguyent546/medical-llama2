@@ -15,7 +15,7 @@ class DialogueDataset(Dataset):
         dataset: datasets.Dataset,
         tokenizer: LlamaTokenizer,
         seq_length: int,
-        input_field: str,
+        input_field: str,  # if we use alpaca template, `input_field` might be not present or empty
         output_field: str,
         instruction_field: str | None = None,
         train_on_inputs: bool = True,
@@ -66,7 +66,7 @@ class DialogueDataset(Dataset):
         else:
             prompt = utils.generate_alpaca_prompt(
                 instruction=item[self.instruction_field],
-                input=item[self.input_field],
+                input=item.get(self.input_field, ''),
                 response=item[self.output_field],
             )
         tokenized_prompt = self.tokenizer(
@@ -94,7 +94,7 @@ class DialogueDataset(Dataset):
             else:
                 user_prompt = utils.generate_alpaca_prompt(
                     instruction=item[self.instruction_field],
-                    input=item[self.input_field],
+                    input=item.get(self.input_field, ''),
                     response='',
                 )
             tokenized_user_prompt = self.tokenizer(

@@ -366,7 +366,6 @@ def eval_generation(
     is_training = model.training
     model.eval()
     for idx, item in enumerate(dataset):
-        input_data = item[args.input_field]
         output_data = item[args.output_field]
         if args.prompt_template == 'llama2':
             prompt = generate_llama2_prompt(
@@ -375,7 +374,7 @@ def eval_generation(
         else:
             prompt = generate_alpaca_prompt(
                 instruction=item[args.instruction_field],
-                input=item[args.input_field],
+                input=item.get(args.input_field, ''),
                 response='',
             )
         model_inputs = tokenizer([prompt], return_tensors='pt').to(device)
@@ -398,7 +397,7 @@ def eval_generation(
         if args.is_local_master and generation_log_interval is not None and (idx + 1) % generation_log_interval == 0:
             if args.instruction_field in item:
                 progress_bar.write(f'>> INST: {item[args.instruction_field]}')
-            progress_bar.write(f'>> INPUT: {input_data}')
+            progress_bar.write(f'>> INPUT: {item.get(args.input_field, "")}')
             progress_bar.write(f'>> OUTPUT: {output_data}')
             progress_bar.write(f'>> MODEL: {model_response}')
 
