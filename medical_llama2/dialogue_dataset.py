@@ -21,6 +21,7 @@ class DialogueDataset(Dataset):
         train_on_inputs: bool = True,
         prompt_template: Literal['llama2', 'alpaca'] = 'llama2',
         dataset_num_procs: int = 4,
+        custom_instruction: str | None = None,
     ):
         self.dataset = dataset
         self.tokenizer = tokenizer
@@ -31,6 +32,7 @@ class DialogueDataset(Dataset):
         self.train_on_inputs = train_on_inputs
         self.prompt_template = prompt_template
         self.dataset_num_procs = dataset_num_procs
+        self.custom_instruction = custom_instruction
 
         if self.prompt_template == 'alpaca':
             assert self.instruction_field is not None, \
@@ -51,6 +53,13 @@ class DialogueDataset(Dataset):
         }
 
     def preproces(self) -> None:
+        if self.custom_instruction is not None and self.prompt_template == 'alpaca':
+            self.dataset = self.dataset.map(
+                lambda x: {**x, self.instruction_field: self.custom_instruction},
+                desc='Replacing instructions',
+                num_proc=self.dataset_num_procs,
+            )
+
         self.dataset = self.dataset.map(
             self._tokenize,
             desc='Preparing and tokenizing prompts',

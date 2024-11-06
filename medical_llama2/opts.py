@@ -83,6 +83,11 @@ def _add_dataset_opts(parser: argparse.ArgumentParser) -> None:
         help='Whether to drop the last incomplete batch',
         action='store_true',
     )
+    group.add_argument(
+        '--custom_instruction',
+        type=str,
+        help='Use your custom instruction for alpaca template (if provided) for the dataset',
+    )
 
 def _add_model_opts(parser: argparse.ArgumentParser) -> None:
     group = parser.add_argument_group('Model')

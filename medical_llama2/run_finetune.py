@@ -63,7 +63,8 @@ def train_model(args: argparse.Namespace) -> None:
         'tokenizer': tokenizer, 'seq_length': args.max_seq_length,
         'input_field': args.input_field, 'output_field': args.output_field,
         'instruction_field': args.instruction_field, 'train_on_inputs': args.train_on_inputs,
-        'prompt_template': args.prompt_template, 'dataset_num_procs': args.dataset_num_procs
+        'prompt_template': args.prompt_template, 'dataset_num_procs': args.dataset_num_procs,
+        'custom_instruction': args.custom_instruction,
     }
     train_dataset, validation_dataset, test_dataset = None, None, None
     if 'train' in raw_dataset:
