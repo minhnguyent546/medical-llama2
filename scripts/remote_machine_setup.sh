@@ -9,9 +9,8 @@ export WANDB_API_KEY='<YOUR_WANDB_API_KEY>'
 DEFAULT_BRANCH="master"
 PROJECT_DIR_NAME="medical-llama2"
 
-python_version="$(python -V | awk '{print $2}' | cut -d '.' -f 1,2)"
 apt update
-apt install -y neofetch htop speedtest-cli tree time nano net-tools python3-pip "python${python_version}-venv"
+apt install -y neofetch htop speedtest-cli tree time nano net-tools python3-pip python3-venv
 
 if [[ ! -d .venv ]]; then
   echo ".venv not found, creating one"
