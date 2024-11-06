@@ -492,10 +492,13 @@ def train_model(args: argparse.Namespace) -> None:
             args=args,
             generation_log_interval=args.generation_log_interval,
             is_test=True,
+            log_file=args.test_generation_log_file,
         )
 
         utils.master_print(f'  Total generation steps: {test_generation_steps}')
         utils.master_print(f'  Per device generation steps: {per_device_test_generation_steps}')
+        if args.test_generation_log_file is not None:
+            utils.master_print(f'  Log file: {args.test_generation_log_file}')
         for bs_key in ('bert_score', 'bert_score_unscaled'):
             if bs_key in gen_results:
                 utils.master_print(

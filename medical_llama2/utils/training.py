@@ -6,6 +6,8 @@ from contextlib import nullcontext
 from tqdm.autonotebook import tqdm
 from typing import Any
 
+import jsonlines
+
 import bert_score
 
 import torch
@@ -333,6 +335,7 @@ def eval_generation(
     args: argparse.Namespace,
     generation_log_interval: int | None = None,
     is_test: bool = False,
+    log_file: str | None = None
 ) -> dict[str, Any]:
     generation_steps = min(generation_steps, len(dataset))
 
@@ -360,6 +363,8 @@ def eval_generation(
                 **bert_score_kwargs,
                 rescale_with_baseline=True,
             )
+    instructions: list[str] = []
+    inputs: list[str] = []
     predictions: list[str] = []
     references: list[str] = []
 
@@ -403,6 +408,10 @@ def eval_generation(
 
         predictions.append(model_response)
         references.append(output_data)
+        if log_file is not None:
+            inputs.append(item.get(args.input_field, ''))
+            if args.instruction_field in item:
+                instructions.append(item[args.instruction_field])
 
         progress_bar.update()
         if idx + 1 >= generation_steps:
@@ -418,6 +427,16 @@ def eval_generation(
             predictions = list(itertools.chain.from_iterable(predictions))
         if len(references) > 0 and references[0] is not None:  # pyright: ignore[reportUnnecessaryComparison]
             references = list(itertools.chain.from_iterable(references))
+
+        if log_file is not None:
+            inputs = gather_object(inputs, args)
+            if len(inputs) > 0 and inputs[0] is not None:
+                inputs = list(itertools.chain.from_iterable(inputs))
+            if instructions:
+                instructions = gather_object(instructions, args)
+                if len(instructions) > 0 and instructions[0] is not None:
+                    instructions = list(itertools.chain.from_iterable(instructions))
+
     outputs = {}
     if bert_scorer is not None:
         assert predictions is not None
@@ -439,5 +458,16 @@ def eval_generation(
             verbose=True,
             return_hash=is_test,
         )
+
+    if log_file is not None:
+        with jsonlines.open(log_file, 'w') as writer:
+            for idx, (input_text, instruction, prediction, reference) in enumerate(zip(inputs, instructions, predictions, references)):
+                writer.write({
+                    'id': idx,
+                    'input': input_text,
+                    'instruction': instruction,
+                    'response': prediction,
+                    'reference': reference,
+                })
 
     return outputs

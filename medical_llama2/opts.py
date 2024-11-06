@@ -368,6 +368,11 @@ def _add_common_training_opts(parser: argparse.ArgumentParser) -> None:
         help='Number of generation steps for test (use -1 to run on the entire dataset)',
         default=25,
     )
+    group.add_argument(
+        '--test_generation_log_file',
+        type=str,
+        help='File to save the generated outputs during testing (should be .jsonl file)',
+    )
 
     group.add_argument(
         '--bert_score_type',
