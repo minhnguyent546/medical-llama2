@@ -10,7 +10,7 @@ DEFAULT_BRANCH="master"
 PROJECT_DIR_NAME="medical-llama2"
 
 apt update
-apt install -y neofetch htop speedtest-cli tree time nano net-tools python3-pip python3-venv
+apt install -y git tmux neofetch htop speedtest-cli tree time nano net-tools python3-pip python3-venv
 
 if [[ ! -d .venv ]]; then
   echo ".venv not found, creating one"
