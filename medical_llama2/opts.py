@@ -405,7 +405,12 @@ def _add_common_training_opts(parser: argparse.ArgumentParser) -> None:
     group.add_argument(
         '--push_to_hub',
         action='store_true',
-        help='Push to HuggingFace\'s hub',
+        help='Push the model to HuggingFace\'s hub',
+    )
+    group.add_argument(
+        '--push_at_steps',
+        type=str,
+        help='A comma separated containing list of steps for pushing. Leave None to push at the end of training (if --push_to_hub is set)',
     )
     group.add_argument(
         '--push_tokenizer',

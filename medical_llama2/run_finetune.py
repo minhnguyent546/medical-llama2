@@ -229,6 +229,13 @@ def train_model(args: argparse.Namespace) -> None:
             resume='must' if args.wandb_resume_id is not None else None,
         )
 
+    # pushing to HuggingFace's hub
+    push_steps = []
+    tokenizer_pushed = False
+    if args.is_master and args.push_to_hub and args.do_train and args.push_at_steps:
+        push_steps = list(map(int, args.push_at_steps.split(',')))
+        push_steps = sorted(push_steps)
+
     valid_steps = args.valid_steps
     test_steps = args.test_steps
     valid_generation_steps = args.valid_generation_steps
@@ -283,6 +290,8 @@ def train_model(args: argparse.Namespace) -> None:
     if wandb_run is not None:
         utils.master_print(f'  Wandb logging interval: {args.wandb_logging_interval}')
     utils.master_print(f'  Push to hub: {args.push_to_hub}')
+    if push_steps:
+        utils.master_print(f'  Push at steps: {push_steps}')
     utils.master_print(f'  Do training: {args.do_train}')
     utils.master_print(f'  Do testing: {args.do_test}')
     utils.master_print(f'  Do testing generation: {args.do_test_generation}')
@@ -307,7 +316,7 @@ def train_model(args: argparse.Namespace) -> None:
     # function definitions for training, testing model
     def do_train_single_epoch():
         assert train_data_loader is not None
-        nonlocal global_step, wandb_accum_logs, train_progressbar
+        nonlocal global_step, wandb_accum_logs, train_progressbar, tokenizer_pushed
 
         total_num_samples = len(train_data_loader)
         last_iter_num_batches = total_num_samples % args.gradient_accum_steps
@@ -456,6 +465,12 @@ def train_model(args: argparse.Namespace) -> None:
             train_progressbar.update()
             global_step += 1
 
+            if global_step in push_steps:
+                unwrapped_model.push_to_hub(args.repo_id, commit_message=args.get('commit_message', 'Upload model') + f' (step {global_step})')
+                if not tokenizer_pushed and args.push_tokenizer:
+                    tokenizer.push_to_hub(args.repo_id)
+                    tokenizer_pushed = True
+
             if is_last_iteration:
                 break
 
@@ -525,7 +540,7 @@ def train_model(args: argparse.Namespace) -> None:
     if args.do_test_generation:
         do_test_generation()
 
-    if args.is_master and args.push_to_hub:
+    if args.is_master and args.push_to_hub and not push_steps:
         unwrapped_model.push_to_hub(args.repo_id, commit_message=args.commit_message)
         if args.push_tokenizer:
             tokenizer.push_to_hub(args.repo_id)
