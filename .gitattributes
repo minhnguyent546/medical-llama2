@@ -1,2 +1,7 @@
 *.ipynb linguist-generated
 pyrightconfig.json linguist-language=jsonc
+data/MedInstruct-52k.json filter=lfs diff=lfs merge=lfs -text
+data/iCliniq-1k.jsonl filter=lfs diff=lfs merge=lfs -text
+data/MedInstruct-test.jsonl filter=lfs diff=lfs merge=lfs -text
+data/**/*.jsonl filter=lfs diff=lfs merge=lfs -text
+data/**/*.json filter=lfs diff=lfs merge=lfs -text
