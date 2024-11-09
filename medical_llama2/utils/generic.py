@@ -131,7 +131,7 @@ def generate_alpaca_prompt(
             f'{instruction}\n\n'
             f'### Input:\n'
             f'{input}\n\n'
-            f'### Response:\n'
+            f'### Response: '
             f'{response}'
         )
     else:
@@ -139,7 +139,7 @@ def generate_alpaca_prompt(
             f'{ALPACA_SYSTEM_PROMPT_NO_INPUT}\n\n'
             f'### Instruction:\n'
             f'{instruction}\n\n'
-            f'### Response:\n'
+            f'### Response: '
             f'{response}'
         )
     return prompt.strip()
