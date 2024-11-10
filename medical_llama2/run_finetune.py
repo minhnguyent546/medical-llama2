@@ -469,7 +469,7 @@ def train_model(args: argparse.Namespace) -> None:
                 trained_epoch = global_step * args.gradient_accum_steps / len(train_data_loader)
                 unwrapped_model.push_to_hub(
                     args.repo_id,
-                    commit_message=args.get('commit_message',
+                    commit_message=getattr(args, 'commit_message',
                     'Upload model') + f' (step {global_step}, epoch {trained_epoch:0.2f})',
                 )
                 if not tokenizer_pushed and args.push_tokenizer:
