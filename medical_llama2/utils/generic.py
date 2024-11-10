@@ -124,7 +124,7 @@ def generate_alpaca_prompt(
     response: str | None = None,
 ) -> str:
     prompt = ''
-    if input is not None and input:
+    if input is not None and input and input.strip() != '<noinput>':
         prompt = (
             f'{ALPACA_SYSTEM_PROMPT}\n\n'
             f'### Instruction:\n'
