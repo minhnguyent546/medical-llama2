@@ -5,12 +5,13 @@
 
 export HF_TOKEN='<YOUR_HF_TOKEN>'
 export WANDB_API_KEY='<YOUR_WANDB_API_KEY>'
+export HF_HUB_ENABLE_HF_TRANSFER=1 # for faster downloading
 
 DEFAULT_BRANCH="master"
 PROJECT_DIR_NAME="medical-llama2"
 
 apt update
-apt install -y git tmux neofetch htop speedtest-cli tree time nano wget net-tools python3-pip python3-venv
+apt install -y git tmux neofetch htop speedtest-cli tree time nano wget net-tools python3-pip python3-venv hf_transfer
 
 if [[ ! -d .venv ]]; then
   echo ".venv not found, creating one"
