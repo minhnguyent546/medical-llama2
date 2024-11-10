@@ -466,7 +466,12 @@ def train_model(args: argparse.Namespace) -> None:
             global_step += 1
 
             if global_step in push_steps:
-                unwrapped_model.push_to_hub(args.repo_id, commit_message=args.get('commit_message', 'Upload model') + f' (step {global_step})')
+                trained_epoch = global_step * args.gradient_accum_steps / len(train_data_loader)
+                unwrapped_model.push_to_hub(
+                    args.repo_id,
+                    commit_message=args.get('commit_message',
+                    'Upload model') + f' (step {global_step}, epoch {trained_epoch:0.2f})',
+                )
                 if not tokenizer_pushed and args.push_tokenizer:
                     tokenizer.push_to_hub(args.repo_id)
                     tokenizer_pushed = True
