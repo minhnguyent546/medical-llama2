@@ -120,22 +120,25 @@ def train_model(args: argparse.Namespace) -> None:
         autocast_context = torch.cuda.amp.autocast(enabled=(mp_dtype in (torch.float16, torch.bfloat16)), dtype=mp_dtype)
     scaler = torch.cuda.amp.GradScaler(enabled=(mp_dtype == torch.float16))
 
-    bnb_config = BitsAndBytesConfig(
-        load_in_8bit=args.load_in_8bit,
-        load_in_4bit=args.load_in_4bit,
-        llm_int8_threshold=args.llm_int8_threshold,
-        llm_int8_skip_modules=args.llm_int8_skip_modules,
-        llm_int8_enable_fp32_cpu_offload=args.llm_int8_enable_fp32_cpu_offload,
-        llm_int8_has_fp16_weight=args.llm_int8_has_fp16_weight,
-        bnb_4bit_quant_type=args.bnb_4bit_quant_type,
-        bnb_4bit_use_double_quant=args.bnb_4bit_use_double_quant,
-        bnb_4bit_compute_dtype=args.bnb_4bit_compute_dtype,
-        bnb_4bit_quant_storage=args.bnb_4bit_quant_storage,
-    )
+    is_load_in_kbit = args.load_in_8bit or args.load_in_4bit
+    bnb_config = None
+    if device.type == 'cuda' and is_load_in_kbit:
+        bnb_config = BitsAndBytesConfig(
+            load_in_8bit=args.load_in_8bit,
+            load_in_4bit=args.load_in_4bit,
+            llm_int8_threshold=args.llm_int8_threshold,
+            llm_int8_skip_modules=args.llm_int8_skip_modules,
+            llm_int8_enable_fp32_cpu_offload=args.llm_int8_enable_fp32_cpu_offload,
+            llm_int8_has_fp16_weight=args.llm_int8_has_fp16_weight,
+            bnb_4bit_quant_type=args.bnb_4bit_quant_type,
+            bnb_4bit_use_double_quant=args.bnb_4bit_use_double_quant,
+            bnb_4bit_compute_dtype=args.bnb_4bit_compute_dtype,
+            bnb_4bit_quant_storage=args.bnb_4bit_quant_storage,
+        )
     model = LlamaForCausalLM.from_pretrained(
         args.model_checkpoint,
         device_map=device,
-        quantization_config=(bnb_config if device.type == 'cuda' else None),
+        quantization_config=bnb_config,
         torch_dtype=args.model_torch_dtype,
         use_flash_attention_2=args.use_flash_attn_2,
         revision=args.model_checkpoint_revision,
@@ -144,7 +147,8 @@ def train_model(args: argparse.Namespace) -> None:
     # setting config.pretraining_tp to a value different than 1 will activate the more accurate
     # but slower computation of the linear layers, which should better match the original logits
     model.config.pretraining_tp = 1
-    model = prepare_model_for_kbit_training(model, args.use_gradient_checkpointing)
+    if is_load_in_kbit:
+        model = prepare_model_for_kbit_training(model, args.use_gradient_checkpointing)
 
     # getting peft model
     if args.peft_checkpoint is not None:
