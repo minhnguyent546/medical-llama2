@@ -26,3 +26,6 @@ indent_size = 2
 [{Makefile,makefile}]
 indent_style = tab
 indent_size = 2
+
+[*.txt]
+insert_final_newline = false
