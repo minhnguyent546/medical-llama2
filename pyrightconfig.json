@@ -1,6 +1,6 @@
 {
   "$schema": "https://raw.githubusercontent.com/microsoft/pyright/main/packages/vscode-pyright/schemas/pyrightconfig.schema.json",
-  "pythonVerson": "3.10",
+  "pythonVersion": "3.10",
 
   "venv": ".venv",
   "venvPath": ".",
