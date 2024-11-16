@@ -194,7 +194,7 @@ def _add_common_training_opts(parser: argparse.ArgumentParser) -> None:
         type=str,
         help='Which prompt template to use',
         choices=['llama2', 'alpaca'],
-        default='llama2',
+        default='alpaca',
     )
 
     # optimizer options
