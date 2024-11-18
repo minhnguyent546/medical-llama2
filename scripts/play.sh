@@ -4,7 +4,6 @@ python play.py \
   --model minhnguyent546/Med-Alpaca-2-7b-chat \
   --seed 42 \
   --prompt_template alpaca \
-  --device cuda:0 \
   --streaming \
   --do_sample \
   --max_new_tokens 256 \
