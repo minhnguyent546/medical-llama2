@@ -33,13 +33,7 @@ model_paths = {
         'filename': 'Med-Alpaca-2-7B-chat.F16.gguf',
     },
 }
-
-model = Llama.from_pretrained(
-    **model_paths[DEFAULT_MODEL],
-    n_ctx=4096,
-    n_threads=4,
-    cache_dir='./.hf_cache'
-)
+model = None
 
 def generate_alpaca_prompt(
     instruction: str,
@@ -77,6 +71,8 @@ def chat_completion(
     top_k: int,
     top_p: float,
 ):
+    if model is None:
+        reload_model(DEFAULT_MODEL)
     prompt = generate_alpaca_prompt(instruction=message)
     response_iterator = model(
         prompt,
@@ -93,7 +89,7 @@ def chat_completion(
         partial_response += token['choices'][0]['text']
         yield partial_response
 
-def on_model_changed(model_name: str):
+def reload_model(model_name: str):
     global model
     if 'model' in globals():
         del model
@@ -102,7 +98,7 @@ def on_model_changed(model_name: str):
         **model_paths[model_name],
         n_ctx=4096,
         n_threads=4,
-        cache_dir='./hf-cache'
+        cache_dir='./.hf_cache'
     )
 
     app_title_mark = gr.Markdown(f"""<center><font size=18>{model_name}</center>""")
@@ -167,7 +163,7 @@ def main() -> None:
                     ],
                 )
 
-        model_radio.change(on_model_changed, inputs=[model_radio], outputs=[app_title_mark, chatbot])
+        model_radio.change(reload_model, inputs=[model_radio], outputs=[app_title_mark, chatbot])
 
         demo.queue(api_open=False, default_concurrency_limit=20)
         demo.launch(max_threads=5, share=os.environ.get('GRADIO_SHARE', False))
