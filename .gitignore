@@ -10,3 +10,5 @@ _*
 .venv*
 /.git-hooks
 /git-conventional-commits.yaml
+/app/.hf_cache
+.gradio

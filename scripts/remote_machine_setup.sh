@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
-# this script is used to set up for fine-tuning when using remote machine (remote GPU nodes, vast.ai, quickpod, etc)
-# run this script with: `source vastai_setup.sh`
+# this script is used to set up for fine-tuning on fresh remote machine
+# run this script via: `source remote_machine_setup.sh`
 
 export HF_TOKEN='<YOUR_HF_TOKEN>'
 export WANDB_API_KEY='<YOUR_WANDB_API_KEY>'
