@@ -30,7 +30,7 @@ All of the pre-trained model weights can be found in the table below.
 
 | Model | link |
 | --- | :---: |
-| Med-Alpaca-2-7b-chat | [HuggingFace](https://huggingface.co/minhnguyent546/Med-Alpaca-2-7b-chat/settings) |
+| Med-Alpaca-2-7b-chat | [HuggingFace](https://huggingface.co/minhnguyent546/Med-Alpaca-2-7b-chat) |
 | Med-Alpaca-2-7b-chat-LoRA | [HuggingFace](https://huggingface.co/minhnguyent546/Med-Alpaca-2-7b-chat-LoRA) |
 | Med-Alpaca-2-7b-chat GGUFs | [Huggingface](https://huggingface.co/minhnguyent546/Med-Alpaca-2-7b-chat-GGUF) |
 | Alpaca-Llama-2-7b-chat | [HuggingFace](https://huggingface.co/minhnguyent546/Alpaca-Llama-2-7b-chat) |
