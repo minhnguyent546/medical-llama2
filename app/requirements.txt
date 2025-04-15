@@ -1,4 +1,2 @@
-gradio~=5.11.0
-hf_transfer~=0.1.8
-huggingface_hub~=0.25.2
-llama-cpp-python~=0.3.2
+gradio==5.23.0
+llama-cpp-python==0.3.2

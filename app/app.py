@@ -71,6 +71,7 @@ def chat_completion(
     top_k: int,
     top_p: float,
 ):
+    global model
     if model is None:
         reload_model(DEFAULT_MODEL)
     prompt = generate_alpaca_prompt(instruction=message)
@@ -91,8 +92,7 @@ def chat_completion(
 
 def reload_model(model_name: str):
     global model
-    if 'model' in globals():
-        del model
+    model = None
     gc.collect()
     model = Llama.from_pretrained(
         **model_paths[model_name],

@@ -43,4 +43,6 @@ All of the pre-trained model weights can be found in the table below.
 
 **TODO**
 
-*Updating...*
+## Demo
+
+You can try out the demo in HuggingFace Spaces [here](https://huggingface.co/spaces/minhnguyent546/Med-Alpaca-2-7b-chat). To run the model locally, please prefer to [app](./app) for more information.
