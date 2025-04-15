@@ -1,3 +1,8 @@
+<center>
+    <p><image src="./assets/medical_llama2.png" alt="medical-llama2"></p>
+        
+</center>
+
 # Medical LLaMA 2
 
 A medical chatbot utilizing Llama-2 7B chat model.
@@ -41,7 +46,67 @@ All of the pre-trained model weights can be found in the table below.
 
 ## Training
 
-**TODO**
+The model was trained using 4 RTX 4090 GPUs with 24GB of VRAM each. The training process took about 1 hour to finish.
+
+You can run the following command to train the model:
+
+```bash
+python run_finetune.py \
+    --do_train \
+    --checkpoints_dir ./checkpoints \
+    --seed 998244353 \
+    --dataset_path lavita/AlpaCare-MedInstruct-52k \
+    --input_field input \
+    --output_field output \
+    --instruction_field instruction \
+    --prompt_template alpaca \
+    --validation_size 500 \
+    --test_size 1000 \
+    --dataset_num_procs 4 \
+    --model_checkpoint minhnguyent546/Alpaca-Llama-2-7b-chat \
+    --tokenizer_checkpoint minhnguyent546/Alpaca-Llama-2-7b-chat \
+    --model_checkpoint_revision 56fbdb8c156a197b0c3f9a80442b667f454cbbb6 \
+    --max_seq_length 512 \
+    --lora_alpha 64 \
+    --lora_dropout 0.1 \
+    --lora_r 16 \
+    --lora_target_modules q_proj v_proj k_proj o_proj gate_proj down_proj up_proj \
+    --lora_bias none \
+    --task_type CAUSAL_LM \
+    --load_in_4bit \
+    --bnb_4bit_compute_dtype float16 \
+    --bnb_4bit_quant_storage float16 \
+    --optim_type bnb_adamw32bit \
+    --loraplus_lr_ratio 16 \
+    --bnb_optim_percentile_clipping 5 \
+    --learning_rate 1e-5 \
+    --min_lr 1e-6 \
+    --betas 0.9 0.95 \
+    --decay_method cosine \
+    --warmup_steps 36 \
+    --decay_steps 800 \
+    --train_batch_size 8 \
+    --eval_batch_size 8 \
+    --gradient_accum_steps 16 \
+    --model_torch_dtype float16 \
+    --mixed_precision float16 \
+    --max_grad_norm 1.0 \
+    --train_steps 800 \
+    --valid_interval 100 \
+    --valid_steps 25 \
+    --save_interval 100 \
+    --saved_checkpoint_limit 30 \
+    --ddp_timeout 2400 \
+    --wandb_logging \
+    --wandb_project medical-llama2 \
+    --wandb_name test \
+    --wandb_logging_interval 10 \
+    --push_to_hub \
+    --push_at_steps 400,800 \
+    --push_tokenizer \
+    --repo_id medical-llama2 \
+    --commit_message test
+```
 
 ## Demo
 
