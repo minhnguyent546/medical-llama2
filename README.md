@@ -1,7 +1,4 @@
-<center>
-    <p><image src="./assets/medical_llama2.png" alt="medical-llama2"></p>
-        
-</center>
+<p align="center"><image src="./assets/medical_llama2.png" alt="medical-llama2" width="500px"></p>
 
 # Medical LLaMA 2
 

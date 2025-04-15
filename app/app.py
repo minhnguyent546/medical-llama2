@@ -107,7 +107,7 @@ def reload_model(model_name: str):
         height=500,
         placeholder='<strong>Hi doctor, I have a headache, what should I do?</strong>',
         label=model_name,
-        avatar_images=[None, 'https://raw.githubusercontent.com/minhnguyent546/medical-llama2/demo/assets/med_alpaca.png'],  # pyright: ignore[reportArgumentType]
+        avatar_images=[None, 'https://raw.githubusercontent.com/minhnguyent546/medical-llama2/refs/heads/master/assets/medical_llama2.png'],  # pyright: ignore[reportArgumentType]
     )
     return app_title_mark, chatbot
 
@@ -139,7 +139,7 @@ def main() -> None:
                     height=500,
                     placeholder='<strong>Hi doctor, I have a headache, what should I do?</strong>',
                     label=DEFAULT_MODEL,
-                    avatar_images=[None, 'https://raw.githubusercontent.com/minhnguyent546/medical-llama2/demo/assets/med_alpaca.png'],  # pyright: ignore[reportArgumentType]
+                    avatar_images=[None, 'https://raw.githubusercontent.com/minhnguyent546/medical-llama2/refs/heads/master/assets/medical_llama2.png'],  # pyright: ignore[reportArgumentType]
                 )
                 textbox = gr.Textbox(
                     placeholder='Hi doctor, I have a headache, what should I do?',
