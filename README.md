@@ -32,11 +32,11 @@ All of the pre-trained model weights can be found in the table below.
 
 | Model | link |
 | --- | :---: |
-| Med-Alpaca-2-7b-chat | [HuggingFace](https://huggingface.co/minhnguyent546/Med-Alpaca-2-7b-chat) |
-| Med-Alpaca-2-7b-chat-LoRA | [HuggingFace](https://huggingface.co/minhnguyent546/Med-Alpaca-2-7b-chat-LoRA) |
+| Med-Alpaca-2-7b-chat | [Huggingface](https://huggingface.co/minhnguyent546/Med-Alpaca-2-7b-chat) |
+| Med-Alpaca-2-7b-chat-LoRA | [Huggingface](https://huggingface.co/minhnguyent546/Med-Alpaca-2-7b-chat-LoRA) |
 | Med-Alpaca-2-7b-chat GGUFs | [Huggingface](https://huggingface.co/minhnguyent546/Med-Alpaca-2-7b-chat-GGUF) |
-| Alpaca-Llama-2-7b-chat | [HuggingFace](https://huggingface.co/minhnguyent546/Alpaca-Llama-2-7b-chat) |
-| Alpaca-Llama-2-7b-chat-LoRA | [HuggingFace](https://huggingface.co/minhnguyent546/Alpaca-Llama-2-7b-chat-LoRA) |
+| Alpaca-Llama-2-7b-chat | [Huggingface](https://huggingface.co/minhnguyent546/Alpaca-Llama-2-7b-chat) |
+| Alpaca-Llama-2-7b-chat-LoRA | [Huggingface](https://huggingface.co/minhnguyent546/Alpaca-Llama-2-7b-chat-LoRA) |
 | Alpaca-Llama-2-7b-chat GGUFs | [Huggingface](https://huggingface.co/minhnguyent546/Alpaca-Llama-2-7b-chat-GGUF) |
 
 **Prompt template**: note that all of the models above use **Alpaca** prompt template. Refer to [this](https://github.com/tatsu-lab/stanford_alpaca) for more information.
