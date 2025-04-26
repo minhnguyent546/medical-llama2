@@ -1,0 +1,18 @@
+# python stuff
+__pycache__
+.ipynb_checkpoints
+/notebooks
+
+# local files
+_*
+!__init__.py
+/wandb
+.venv*
+/.git-hooks
+/git-conventional-commits.yaml
+/app/.hf_cache
+.gradio
+/data
+
+# git
+.git

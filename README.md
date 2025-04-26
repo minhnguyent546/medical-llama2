@@ -41,6 +41,34 @@ All of the pre-trained model weights can be found in the table below.
 
 **Prompt template**: note that all of the models above use **Alpaca** prompt template. Refer to [this](https://github.com/tatsu-lab/stanford_alpaca) for more information.
 
+## Setup
+
+- Clone this repo:
+```bash
+git clone https://github.com/minhnguyent546/medical-llama2.git
+cd medical-llama2
+```
+
+- Create a virtual environment with conda:
+```bash
+conda create -n medical-llama2 python=3.10 -y 
+conda activate medical-llama2
+pip install -r requirements.txt
+```
+
+- Or if you prefer Docker:
+```bash
+docker build -t medical-llama2 .
+docker run \
+    --rm \
+    --shm-size=512mb \
+    --gpus=all \
+    -e HF_TOKEN='<YOUR_HF_TOKEN>' \
+    -e WANDB_API_KEY='<YOUR_WANDB_API_KEY>' \
+    -e HF_HUB_ENABLE_HF_TRANSFER=1 \
+    medical-llama2 run_finetune.py --help
+```
+
 ## Training
 
 The model was trained using 4 RTX 4090 GPUs with 24GB of VRAM each. The training process took about 1 hour to finish.
