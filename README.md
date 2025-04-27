@@ -51,8 +51,11 @@ cd medical-llama2
 
 - Create a virtual environment with conda:
 ```bash
+# create a venv
 conda create -n medical-llama2 python=3.10 -y 
 conda activate medical-llama2
+
+# install requirements
 pip install -r requirements.txt
 ```
 
@@ -61,12 +64,16 @@ pip install -r requirements.txt
 docker build -t medical-llama2 .
 docker run \
     --rm \
+    -it \
     --shm-size=512mb \
     --gpus=all \
     -e HF_TOKEN='<YOUR_HF_TOKEN>' \
     -e WANDB_API_KEY='<YOUR_WANDB_API_KEY>' \
     -e HF_HUB_ENABLE_HF_TRANSFER=1 \
-    medical-llama2 run_finetune.py --help
+    --entrypoint=bash \
+    medical-llama2
+
+python run_finetune.py --help
 ```
 
 ## Training
