@@ -98,7 +98,7 @@ def reload_model(model_name: str):
         **model_paths[model_name],
         n_ctx=4096,
         n_threads=4,
-        cache_dir='./.hf_cache'
+        cache_dir='./.cache/huggingface'
     )
 
     app_title_mark = gr.Markdown(f"""<center><font size=18>{model_name}</center>""")
