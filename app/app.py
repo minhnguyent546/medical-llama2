@@ -74,6 +74,7 @@ def chat_completion(
     global model
     if model is None:
         reload_model(DEFAULT_MODEL)
+    assert model is not None
     prompt = generate_alpaca_prompt(instruction=message)
     response_iterator = model(
         prompt,
@@ -111,14 +112,28 @@ def reload_model(model_name: str):
     )
     return app_title_mark, chatbot
 
-def main() -> None:
-    with gr.Blocks(theme=gr.themes.Ocean()) as demo:
-        app_title_mark = gr.Markdown(f"""<center><font size=18>{DEFAULT_MODEL}</center>""")
+def load_css(file_path: str) -> str:
+    css_content = ''
+    try:
+        with open(file_path, 'r') as file:
+            css_content = file.read()
+    except OSError:
+        print(f'Failed to load CSS file: {file_path}')
+    return css_content
 
-        model_options = list(model_paths.keys())
+with gr.Blocks(theme=gr.themes.Ocean(), css=load_css('./css/styles.css')) as demo:
+    app_title_mark = gr.Markdown(f"""<center><font size=18>{DEFAULT_MODEL}</center>""")
 
-        with gr.Row():
-            with gr.Column(scale=2):
+    model_options = list(model_paths.keys())
+
+    with gr.Row():
+        with gr.Column(scale=2, min_width=0) as config_column:
+            config_visible = gr.State(True)
+
+            with gr.Row():
+                toggle_config_btn = gr.Button('☰', variant='secondary', size='sm', min_width=40)
+
+            with gr.Column(visible=True) as config_panel:
                 with gr.Row():
                     model_radio = gr.Radio(choices=model_options, label='Model', value=DEFAULT_MODEL)
                 with gr.Row():
@@ -133,41 +148,75 @@ def main() -> None:
                     top_k = gr.Slider(1, 100, step=1, label='Top k', value=40)
                     top_p = gr.Slider(0, 1, step=0.01, label='Top p', value=0.9)
 
-            with gr.Column(scale=5):
-                chatbot = gr.Chatbot(
-                    type='messages',
-                    height=500,
-                    placeholder='<strong>Hi doctor, I have a headache, what should I do?</strong>',
-                    label=DEFAULT_MODEL,
-                    avatar_images=[None, 'https://raw.githubusercontent.com/minhnguyent546/medical-llama2/refs/heads/master/assets/medical_llama2.png'],  # pyright: ignore[reportArgumentType]
-                )
-                textbox = gr.Textbox(
-                    placeholder='Hi doctor, I have a headache, what should I do?',
-                    container=False,
-                    submit_btn=True,
-                    stop_btn=True,
-                )
+        with gr.Column(scale=5) as chat_column:
+            chatbot = gr.Chatbot(
+                type='messages',
+                height=500,
+                placeholder='<strong>Hi doctor, I have a headache, what should I do?</strong>',
+                label=DEFAULT_MODEL,
+                avatar_images=[None, 'https://raw.githubusercontent.com/minhnguyent546/medical-llama2/refs/heads/master/assets/medical_llama2.png'],  # pyright: ignore[reportArgumentType]
+                elem_classes='max-width-chat',
+            )
+            textbox = gr.Textbox(
+                placeholder='Hi doctor, I have a headache, what should I do?',
+                container=False,
+                submit_btn=True,
+                stop_btn=True,
+                elem_classes='max-width-chat',
+            )
 
-                chat_interface = gr.ChatInterface(
-                    chat_completion,
-                    type='messages',
-                    chatbot=chatbot,
-                    textbox=textbox,
-                    additional_inputs=[
-                        seed,
-                        max_new_tokens,
-                        temperature,
-                        repeatition_penalty,
-                        top_k,
-                        top_p,
-                    ],
-                )
+            chat_interface = gr.ChatInterface(
+                chat_completion,
+                type='messages',
+                chatbot=chatbot,
+                textbox=textbox,
+                additional_inputs=[
+                    seed,
+                    max_new_tokens,
+                    temperature,
+                    repeatition_penalty,
+                    top_k,
+                    top_p,
+                ],
+            )
 
-        model_radio.change(reload_model, inputs=[model_radio], outputs=[app_title_mark, chatbot])
+    def toggle_config(visible_state):
+        new_visible = not visible_state
+        if new_visible:
+            # Config panel visible: normal layout, no max-width constraint
+            config_scale = 2
+            chat_scale = 5
+            chat_css_class = ''
+        else:
+            # Config panel collapsed: chat takes more space, apply max-width constraint
+            config_scale = 0
+            chat_scale = 7
+            chat_css_class = 'max-width-chat'
 
-        demo.queue(api_open=False, default_concurrency_limit=20)
-        demo.launch(max_threads=5, share=os.environ.get('GRADIO_SHARE', False))
+        print(f'{chat_css_class = }')
+        return (
+            new_visible,
+            gr.update(visible=new_visible),
+            gr.update(scale=config_scale),
+            gr.update(scale=chat_scale),
+            gr.update(elem_classes=chat_css_class),
+            gr.update(elem_classes=chat_css_class),
+        )
 
+    toggle_config_btn.click(
+        toggle_config,
+        inputs=[config_visible],
+        outputs=[
+            config_visible,
+            config_panel,
+            config_column,
+            chat_column,
+            chatbot,
+            textbox,
+        ]
+    )
 
-if __name__ == '__main__':
-    main()
+    model_radio.change(reload_model, inputs=[model_radio], outputs=[app_title_mark, chatbot])
+
+    demo.queue(api_open=False, default_concurrency_limit=20)
+    demo.launch(max_threads=5, share=os.environ.get('GRADIO_SHARE', False))
